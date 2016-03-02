@@ -25,7 +25,9 @@
 #  define AKMALLOC_EXPORT extern
 #endif
 
-#if !defined(AKMALLOC_GETPAGESIZE)
+#if defined(AKMALLOC_GETPAGESIZE)
+#  error "Page size can only be set to an internal default."
+#else
 #  define AKMALLOC_GETPAGESIZE AKMALLOC_DEFAULT_GETPAGESIZE
 #endif
 
@@ -58,5 +60,7 @@ AKMALLOC_EXPORT size_t ak_malloc_usable_size(const void*);
 /***********************************************
  * IMPLEMENTATION
  ***********************************************/
+
+
 
 #endif/*AKMALLOC_MALLOC_H*/

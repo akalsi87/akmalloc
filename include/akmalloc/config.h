@@ -101,13 +101,4 @@
 #  define AKMALLOC_ARM 0
 #endif
 
-/*
- * Cache line macros
- */
-#if AKMALLOC_ARM
-#  define AKMALLOC_CACHE_LINE_LENGTH 32
-#else
-#  define AKMALLOC_CACHE_LINE_LENGTH 64
-#endif
-
 #endif/*AKMALLOC_CONFIG_H*/
