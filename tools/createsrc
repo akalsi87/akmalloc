@@ -1,0 +1,30 @@
+#!/bin/bash
+
+if [ $# -ne 1 ];
+then
+  echo "Usage:"
+  echo "  createsrc path_to_src"
+  exit 1
+fi
+
+tools_dir=$(cd "$(dirname "$0")"; pwd)
+proj_dir=`dirname ${tools_dir}`
+
+lic=$(cat $(${proj_dir}/tools/findlicense))
+
+if [ -e $1 ]
+then
+    rm $1
+fi
+
+touch $1
+
+echo "/*" >> $1
+echo "${lic}" >> $1
+echo "*/" >> $1
+echo "" >> $1
+echo "/**" >> $1
+echo " * \file `basename $1`" >> $1
+echo " * \date `date \"+%b %d, %Y\"`" >> $1
+echo " */" >> $1
+echo "" >> $1
