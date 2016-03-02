@@ -9,3 +9,8 @@
 
 CPP_TEST( ensureConfigIncludeWorks )
 { }
+
+#include "akmalloc/malloc.h"
+
+CPP_TEST( ensureMallocIncludeWorks )
+{ }

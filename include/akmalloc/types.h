@@ -9,11 +9,8 @@
 #include "akmalloc/config.h"
 
 typedef char ak_char;
-typedef unsigned char ak_uchar;
-typedef ak_uchar ak_byte;
-
-typedef ak_char ak_i8;
-typedef ak_byte ak_u8;
+typedef signed char ak_i8;
+typedef unsigned char ak_u8;
 
 typedef short ak_i16;
 typedef unsigned short ak_u16;
