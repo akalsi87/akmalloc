@@ -6,6 +6,7 @@
 #ifndef AKMALLOC_MALLOC_H
 #define AKMALLOC_MALLOC_H
 
+#include "akmalloc/assert.h"
 #include "akmalloc/constants.h"
 #include "akmalloc/memmap.h"
 
@@ -39,6 +40,10 @@
 
 #if !defined(AKMALLOC_LARGE_BLOCK_SIZE)
 #  define AKMALLOC_LARGE_BLOCK_SIZE AKMALLOC_DEFAULT_LARGE_BLOCK_SIZE
+#endif
+
+#if !defined(AKMALLOC_ASSERT)
+#  define AKMALLOC_ASSERT AKMALLOC_DEFAULT_ASSERT
 #endif
 
 AKMALLOC_EXPORT void*  ak_malloc(size_t);
