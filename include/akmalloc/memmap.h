@@ -1,7 +1,3 @@
-/*
-<choose a license>
-*/
-
 /**
  * \file memmap.h
  * \date Mar 01, 2016

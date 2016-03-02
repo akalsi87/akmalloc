@@ -1,7 +1,3 @@
-/*
-<choose a license>
-*/
-
 /**
  * \file threadlocal.h
  * \date Mar 01, 2016

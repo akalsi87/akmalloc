@@ -1,7 +1,3 @@
-/*
-<choose a license>
-*/
-
 /**
  * \file atomic.h
  * \date Mar 01, 2016
