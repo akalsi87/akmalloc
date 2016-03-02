@@ -8,7 +8,7 @@ set(akmalloc_exp_hdr
     ${xprt}/assert.h;
     ${xprt}/atomic.h;
     ${xprt}/config.h;
-    ${xprt}/exportsym.h;
+    ${xprt}/constants.h;
     ${xprt}/malloc.h;
     ${xprt}/memmap.h;
     ${xprt}/threadlocal.h;
