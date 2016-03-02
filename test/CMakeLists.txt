@@ -1,8 +1,7 @@
 # TEST: sub module
 
-add_test_exe    (tBasic ./tBasic.cpp)
-test_link_libs  (tBasic )
-create_test     (tBasic)
-
 add_dependencies(check akmalloc)
 
+add_test_exe    (tConfig ./tConfig.cpp)
+test_link_libs  (tConfig )
+create_test     (tConfig)
