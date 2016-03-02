@@ -13,6 +13,7 @@ set(akmalloc_exp_hdr
     ${xprt}/memmap.h;
     ${xprt}/threadlocal.h;
     ${xprt}/types.h;
+    ${xprt}/utils.h;
     )
 
 add_lib(akmalloc ${akmalloc_exp_hdr})
