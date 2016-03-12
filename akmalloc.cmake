@@ -16,8 +16,7 @@ set(akmalloc_exp_hdr
     ${xprt}/utils.h;
     )
 
-add_lib(akmalloc ${akmalloc_exp_hdr})
-set_target_properties(akmalloc PROPERTIES LINKER_LANGUAGE C)
+add_custom_target(akmalloc SOURCES ${akmalloc_exp_hdr})
 
 # -- Install!
 install_hdr(${akmalloc_exp_hdr})
