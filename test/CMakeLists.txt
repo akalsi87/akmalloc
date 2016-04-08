@@ -2,16 +2,25 @@
 
 add_dependencies(check akmalloc)
 
-add_test_exe    (tConfig tConfig.cpp)
-test_link_libs  (tConfig )
-create_test     (tConfig)
-if (NOT is_msvc)
-  add_comp_flag(tConfig "-Wno-unused-function")
+macro(test_create testname)
+  create_test     (${testname})
+  # add -Wno-unused-function as not all tests exercise
+  # all functions
+  if (NOT is_msvc)
+    add_comp_flag(${testname} "-Wno-unused-function")
+  endif()
+endmacro(test_create)
+
+if (AKMALLOC_LIBRARY)
+  set(to_link akmalloc)
+else()
+  set(to_link )
 endif()
 
+add_test_exe    (tConfig tConfig.cpp)
+test_link_libs  (tConfig ${to_link})
+test_create     (tConfig)
+
 add_test_exe    (tMapUnmap tMapUnmap.cpp)
-test_link_libs  (tMapUnmap )
-create_test     (tMapUnmap)
-if (NOT is_msvc)
-  add_comp_flag(tConfig "-Wno-unused-function")
-endif()
+test_link_libs  (tMapUnmap ${to_link})
+test_create     (tMapUnmap)

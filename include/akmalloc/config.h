@@ -6,23 +6,21 @@
 #ifndef AKMALLOC_CONFIG_H
 #define AKMALLOC_CONFIG_H
 
-#define AKMALLOC_MAJOR_VER 0
-#define AKMALLOC_MINOR_VER 0
-#define AKMALLOC_PATCH_VER 1
+#include "akmalloc/rc.h"
 
 /*
  * Compiler definition macros
  */
 #if defined(_MSC_VER)
-#  define AKMALLOC_MSVC 1
+#  define AKMALLOC_MSVC       1
 #endif
 
 #if defined(__GNUC__) && !defined(__clang__)
-#  define AKMALLOC_GCC 1
+#  define AKMALLOC_GCC        1
 #endif
 
 #if defined(__clang__)
-#  define AKMALLOC_CLANG 1
+#  define AKMALLOC_CLANG      1
 #endif
 
 #if !AKMALLOC_MSVC && !AKMALLOC_GCC && !AKMALLOC_CLANG
@@ -33,31 +31,31 @@
  * Platform definition macros
  */
 #if defined(_WIN32)
-#  define AKMALLOC_LINUX 0
-#  define AKMALLOC_WINDOWS 1
-#  define AKMALLOC_IOS 0
-#  define AKMALLOC_MACOS 0
+#  define AKMALLOC_LINUX      0
+#  define AKMALLOC_WINDOWS    1
+#  define AKMALLOC_IOS        0
+#  define AKMALLOC_MACOS      0
 #endif
 
 #if defined(__linux__)
-#  define AKMALLOC_LINUX 1
-#  define AKMALLOC_WINDOWS 0
-#  define AKMALLOC_IOS 0
-#  define AKMALLOC_MACOS 0
+#  define AKMALLOC_LINUX      1
+#  define AKMALLOC_WINDOWS    0
+#  define AKMALLOC_IOS        0
+#  define AKMALLOC_MACOS      0
 #endif
 
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
 #  if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
-#    define AKMALLOC_LINUX 0
-#    define AKMALLOC_WINDOWS 0
-#    define AKMALLOC_IOS 1
-#    define AKMALLOC_MACOS 0
+#    define AKMALLOC_LINUX    0
+#    define AKMALLOC_WINDOWS  0
+#    define AKMALLOC_IOS      1
+#    define AKMALLOC_MACOS    0
 #  elif TARGET_OS_MAC
-#    define AKMALLOC_LINUX 0
-#    define AKMALLOC_WINDOWS 0
-#    define AKMALLOC_IOS 0
-#    define AKMALLOC_MACOS 1
+#    define AKMALLOC_LINUX    0
+#    define AKMALLOC_WINDOWS  0
+#    define AKMALLOC_IOS      0
+#    define AKMALLOC_MACOS    1
 #  else
 #    error "Unknown Apple platform"
 #  endif
@@ -96,9 +94,9 @@
  * see: https://sourceforge.net/p/predef/wiki/Architectures/
  */
 #if defined(__arm__) || defined(_M_ARM)
-#  define AKMALLOC_ARM 1
+#  define AKMALLOC_ARM        1
 #else
-#  define AKMALLOC_ARM 0
+#  define AKMALLOC_ARM        0
 #endif
 
 #endif/*AKMALLOC_CONFIG_H*/
