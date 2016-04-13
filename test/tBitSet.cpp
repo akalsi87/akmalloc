@@ -10,4 +10,34 @@
 CPP_TEST( bitSetIncludeWorks )
 { }
 
+static const size_t NBITS = sizeof(ak_bitset32) * 8;
 
+CPP_TEST( bitSetClearSetGet )
+{
+    ak_bitset32 bs;
+
+    ak_bitset_clear_all(&bs);
+    TEST_TRUE(bs == 0);
+    for (size_t i = 0; i != NBITS; ++i) {
+        TEST_FALSE(ak_bitset_get(&bs, i));
+    }
+    TEST_TRUE(ak_bitset_num_leading_zeros(&bs) == NBITS);
+    TEST_TRUE(ak_bitset_num_trailing_zeros(&bs) == NBITS);
+
+    ak_bitset_set_all(&bs);
+    TEST_TRUE(bs == 0xFFFFFFFF);
+    for (size_t i = 0; i != NBITS; ++i) {
+        TEST_TRUE(ak_bitset_get(&bs, i));
+    }
+    TEST_TRUE(ak_bitset_num_leading_zeros(&bs) == 0);
+    TEST_TRUE(ak_bitset_num_trailing_zeros(&bs) == 0);
+
+    ak_bitset_clear_all(&bs);
+    for (size_t i = 0; i != NBITS; ++i) {
+        ak_bitset_set(&bs, i);
+        TEST_TRUE(ak_bitset_get(&bs, i));
+        TEST_TRUE(ak_bitset_num_leading_zeros(&bs) == (NBITS-(i+1)));
+        TEST_TRUE(ak_bitset_num_trailing_zeros(&bs) == i);
+        ak_bitset_clear(&bs, i);
+    }
+}
