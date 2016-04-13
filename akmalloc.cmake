@@ -23,6 +23,8 @@ set(akmalloc_exp_hdr
     ${xprt}/atomic.h;
     ${xprt}/config.h;
     ${xprt}/constants.h;
+    ${xprt}/detail/bitset.h;
+    ${xprt}/inline.h;
     ${xprt}/malloc.h;
     ${xprt}/memmap.h;
     ${xprt}/threadlocal.h;
@@ -40,12 +42,13 @@ if (AKMALLOC_LIBRARY)
     add_comp_flag(akmalloc "-Wno-unused-function")
   endif()
   set_tgt_ver(akmalloc "${akmalloc_major}.${akmalloc_minor}.${akmalloc_patch}" "${akmalloc_major}.${akmalloc_minor}")
+  # -- Install!
   install_tgt(akmalloc)
+  install_hdr(${akmalloc_exp_hdr})
 else()
   list(APPEND akmalloc_exp_hdr ${akmalloc_impl})
   set(akmalloc_all_src ${akmalloc_exp_hdr})
   add_custom_target(akmalloc SOURCES ${akmalloc_exp_hdr})
+  # -- Install!
+  install_hdr(${akmalloc_exp_hdr})
 endif()
-
-# -- Install!
-install_hdr(${akmalloc_exp_hdr})

@@ -37,6 +37,9 @@
  * IMPLEMENTATION
  ***********************************************/
 
+#define ak_offsetof(ty, field) (ak_sz)(((ty *)0)->field)
+#define ak_pagealign(sz) (ak_sz)(((sz) + AKMALLOC_DEFAULT_PAGESIZE - 1) & (AKMALLOC_DEFAULT_PAGESIZE - 1))
+
 void* ak_malloc(size_t sz)
 {
     return 0;

@@ -24,3 +24,7 @@ test_create     (tConfig)
 add_test_exe    (tMapUnmap tMapUnmap.cpp)
 test_link_libs  (tMapUnmap ${to_link})
 test_create     (tMapUnmap)
+
+add_test_exe    (tBitSet tBitSet.cpp)
+test_link_libs  (tBitSet ${to_link})
+test_create     (tBitSet)
