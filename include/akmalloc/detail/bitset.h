@@ -15,6 +15,21 @@
 
 typedef ak_u32 ak_bitset32;
 
+ak_inline static int ak_bitset_all(const ak_bitset32* bs)
+{
+    return (*bs == 0xFFFFFFFF) ? 1 : 0;
+}
+
+ak_inline static int ak_bitset_any(const ak_bitset32* bs)
+{
+    return *(const int*)bs;
+}
+
+ak_inline static int ak_bitset_none(const ak_bitset32* bs)
+{
+    return (*bs == 0x00000000) ? 1 : 0;
+}
+
 ak_inline static void ak_bitset_set_all(ak_bitset32* bs)
 {
     *bs = 0xFFFFFFFF;
@@ -22,17 +37,17 @@ ak_inline static void ak_bitset_set_all(ak_bitset32* bs)
 
 ak_inline static void ak_bitset_clear_all(ak_bitset32* bs)
 {
-    *bs = 0; 
+    *bs = 0x00000000; 
 }
 
 ak_inline static void ak_bitset_set(ak_bitset32* bs, int i)
 {
-    *bs |= (((ak_bitset32)1) << i);
+    *bs |= (0x00000001 << i);
 }
 
 ak_inline static void ak_bitset_clear(ak_bitset32* bs, int i)
 {
-    *bs &= ~(((ak_bitset32)1) << i);
+    *bs &= ~(0x00000001 << i);
 }
 
 ak_inline static void ak_bitset_set_n(ak_bitset32* bs, int i, int n)
@@ -49,7 +64,7 @@ ak_inline static void ak_bitset_clear_n(ak_bitset32* bs, int i, int n)
 
 ak_inline static ak_bitset32 ak_bitset_get(const ak_bitset32* bs, int i)
 {
-    return (*bs & (((ak_bitset32)1) << i));
+    return (*bs & (0x00000001 << i));
 }
 
 ak_inline static ak_bitset32 ak_bitset_get_n(const ak_bitset32* bs, int i, int n)
@@ -76,6 +91,18 @@ ak_inline static int ak_bitset_num_trailing_zeros(const ak_bitset32* bs)
 #else
     return (*bs) ? __builtin_ctz(*bs) : 32;
 #endif
+}
+
+ak_inline static int ak_bitset_num_leading_ones(const ak_bitset32* bs)
+{
+    ak_bitset32 copy = ~(*bs);
+    return ak_bitset_num_leading_zeros(&copy);
+}
+
+ak_inline static int ak_bitset_num_trailing_ones(const ak_bitset32* bs)
+{
+    ak_bitset32 copy = ~(*bs);
+    return ak_bitset_num_trailing_zeros(&copy);
 }
 
 #endif/*AKMALLOC_DETAIL_BITSET_H*/
