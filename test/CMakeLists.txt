@@ -12,6 +12,7 @@ macro(test_create testname)
 endmacro(test_create)
 
 if (AKMALLOC_LIBRARY)
+  add_definitions(-DAKMALLOC_BUILD)
   set(to_link akmalloc)
 else()
   set(to_link )
