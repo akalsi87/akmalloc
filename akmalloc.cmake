@@ -8,8 +8,11 @@ set(akmalloc_patch 1)
 
 set(xprt include/akmalloc)
 
+# create the configured rc file
+get_filename_component(rc_dirpath ${xprt}/rc.h.template DIRECTORY)
+get_filename_component(rc_absdirpath ${rc_dirpath} ABSOLUTE)
 configure_file(${xprt}/rc.h.template
-               ${CMAKE_CURRENT_SOURCE_DIR}/${xprt}/rc.h
+               ${rc_absdirpath}/rc.h
                @ONLY
                )
 
