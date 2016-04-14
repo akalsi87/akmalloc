@@ -40,4 +40,16 @@ CPP_TEST( bitSetClearSetGet )
         TEST_TRUE(ak_bitset_num_trailing_zeros(&bs) == i);
         ak_bitset_clear(&bs, i);
     }
+
+    ak_bitset_set_n(&bs, 0, 2);
+    TEST_TRUE(bs == 3);
+    TEST_TRUE(ak_bitset_get_n(&bs, 0, 2) == 3);
+    ak_bitset_clear_n(&bs, 0, 2);
+    TEST_TRUE(bs == 0);
+
+    ak_bitset_set_n(&bs, 12, 3);
+    TEST_TRUE(bs == (7 << 12));
+    TEST_TRUE(ak_bitset_get_n(&bs, 12, 3) == 7);
+    ak_bitset_clear_n(&bs, 12, 3);
+    TEST_TRUE(bs == 0);
 }

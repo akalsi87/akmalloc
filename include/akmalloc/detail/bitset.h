@@ -35,9 +35,27 @@ ak_inline static void ak_bitset_clear(ak_bitset32* bs, int i)
     *bs &= ~(((ak_bitset32)1) << i);
 }
 
+ak_inline static void ak_bitset_set_n(ak_bitset32* bs, int i, int n)
+{
+    ak_bitset32 mask = ~(0xFFFFFFFF << n);
+    *bs |= (mask << i);
+}
+
+ak_inline static void ak_bitset_clear_n(ak_bitset32* bs, int i, int n)
+{
+    ak_bitset32 mask = ~(0xFFFFFFFF << n);
+    *bs &= ~(mask << i);
+}
+
 ak_inline static ak_bitset32 ak_bitset_get(const ak_bitset32* bs, int i)
 {
     return (*bs & (((ak_bitset32)1) << i));
+}
+
+ak_inline static ak_bitset32 ak_bitset_get_n(const ak_bitset32* bs, int i, int n)
+{
+    ak_bitset32 mask = ~(0xFFFFFFFF << n);
+    return (*bs & (mask << i)) >> i;
 }
 
 ak_inline static int ak_bitset_num_leading_zeros(const ak_bitset32* bs)
