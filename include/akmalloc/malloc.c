@@ -64,7 +64,7 @@ static void ak_os_free(void* p, size_t sz)
 
 ak_inline static void* ak_page_start_before(void* p)
 {
-    return (void*)((ak_sz)p & (~(AKMALLOC_DEFAULT_PAGE_SIZE - 1)));
+    return (void*)((ak_sz)p & (~(ak_sz)(AKMALLOC_DEFAULT_PAGE_SIZE - 1)));
 }
 
 /***********************************************
@@ -87,8 +87,6 @@ struct ak_slab_root_tag
     ak_u32       sz;
     ak_u32       magic;
     ak_bitset32  avail;
-
-    ak_slab*     recent;
 };
 
 struct ak_slab_tag
@@ -108,7 +106,6 @@ static void ak_slab_init_root(ak_slab_root* s, ak_sz sz)
     s->sz = sz;
     s->magic = AK_SLAB_MAGIC;
     ak_bitset_clear_all(&(s->avail));
-    s->recent = s->fd;
 }
 
 static ak_slab* ak_slab_init(void* mem, ak_sz bytes, ak_sz sz)
@@ -138,7 +135,7 @@ ak_inline static ak_sz ak_num_slabs_per_page(ak_sz sz)
     return (szofslabdata > maxsz) ? 1 : (AKMALLOC_DEFAULT_PAGE_SIZE / szofslabdata);
 }
 
-static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk)
+ak_inline static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk)
 {
     // try to acquire a page and fit as many slabs as possible in
     char* mem = (char*)ak_os_alloc(AKMALLOC_DEFAULT_PAGE_SIZE);
@@ -180,32 +177,32 @@ ak_inline static int ak_slab_all_free(ak_slab* s)
 
 ak_inline static void* ak_slab_alloc_idx(ak_slab* s, int idx)
 {
-    // found free slot at nlz
     ak_bitset_clear(&(s->avail), idx);
     return ak_slab_2_mem(s) + (idx * s->sz);
 }
 
-static void* ak_slab_alloc_pvt(ak_slab_root* root, ak_slab* s, ak_slab** precent)
+static void* ak_slab_alloc_pvt(ak_slab_root* root, ak_slab* s)
 {
     ak_u32 ntz = ak_bitset_num_trailing_zeros(&(s->avail));
     if (ntz == 32) {
-        ak_slab* const startslab = s;
-        while (s->fd != startslab) {
+        // check existing slabs
+        while (s->fd != (ak_slab*)root) {
+            AKMALLOC_ASSERT(s->fd->sz == s->sz);
+            AKMALLOC_ASSERT(s->fd->magic == AK_SLAB_MAGIC);
             s = s->fd;
             ak_u32 ntz = ak_bitset_num_trailing_zeros(&(s->avail));
             if (ntz != 32) {
-                *precent = s;
                 return ak_slab_alloc_idx(s, ntz);
             }
         }
-        ak_slab* nslab = ak_slab_new(startslab->sz, startslab->fd, startslab);
+        // create a new slab
+        s = root->fd;
+        ak_slab* nslab = ak_slab_new(s->sz, s->fd, s);
         if (nslab) {
-            *precent = nslab;
             return ak_slab_alloc_idx(nslab, 0);
         }
+        // out of memory
         return 0;
-    } else {
-        *precent = s;
     }
     return ak_slab_alloc_idx(s, ntz);
 }
@@ -213,7 +210,7 @@ static void* ak_slab_alloc_pvt(ak_slab_root* root, ak_slab* s, ak_slab** precent
 static void* ak_slab_alloc(ak_slab_root* s)
 {
     AKMALLOC_ASSERT(s->fd->sz == s->sz);
-    return ak_slab_alloc_pvt(s, s->recent, &(s->recent));
+    return ak_slab_alloc_pvt(s, s->fd);
 }
 
 static void ak_slab_free(void* p)
@@ -225,6 +222,7 @@ static void ak_slab_free(void* p)
     ak_u32 checkall = 0;
     AKMALLOC_ASSERT(firstslab->magic == AK_SLAB_MAGIC);
 
+    ak_slab* rightslab = 0;
     {// free to the right slab
         ak_sz nslabsoff = (mem - (char*)firstslab)/firstslab->bytes;
         ak_slab* rightslab = (ak_slab*)((char*)firstslab + nslabsoff*firstslab->bytes);
@@ -235,23 +233,25 @@ static void ak_slab_free(void* p)
         checkall = ak_slab_all_free(rightslab);
     }
 
-    if (checkall) {
+    if (checkall && ((rightslab != firstslab) || ak_slab_all_free(firstslab))) {
         int allfree = 1;
-        ak_slab* curr = firstslab;
+        ak_slab* curr = firstslab->fd;
+        ak_slab* prev = firstslab;
         ak_sz nslabs = ak_num_slabs_per_page(firstslab->sz);
         ak_sz i = 0;
-        for (; i < nslabs; ++i) {
+        for (; i < nslabs - 1; ++i) {
             if (!ak_slab_all_free(curr)) {
                 allfree = 0;
                 break;
             }
             ak_slab* next = (ak_slab*)((char*)curr + curr->bytes);
-            AKMALLOC_ASSERT((i == (nslabs - 1)) || (next == curr->fd));
+            AKMALLOC_ASSERT((i == (nslabs - 2)) || (next == curr->fd));
             AKMALLOC_ASSERT(curr->magic == AK_SLAB_MAGIC);
+            prev = curr;
             curr = next;
         }
         if (allfree) {
-            ak_slab* lastslab = (ak_slab*)((char*)curr - (AKMALLOC_DEFAULT_PAGE_SIZE / nslabs));
+            ak_slab* lastslab = prev;
             firstslab->bk->fd = lastslab->fd;
             lastslab->fd->bk = firstslab->bk;
             ak_os_free(firstslab, AKMALLOC_DEFAULT_PAGE_SIZE);

@@ -17,14 +17,28 @@ CPP_TEST( slab )
         TEST_TRUE(root.fd == (ak_slab*)&root);
         TEST_TRUE(root.sz == 8);
         TEST_TRUE(ak_num_slabs_per_page(8) == 16);
-        TEST_TRUE(root.recent == root.fd);
     }
 
     {// single alloc and free
         void* p = ak_slab_alloc(&root);
-        TEST_TRUE(root.recent == ak_page_start_before(p));
         TEST_TRUE(root.fd != (ak_slab*)&root);
         ak_slab_free(p);
         TEST_TRUE(root.fd == (ak_slab*)&root);
+    }
+
+    static const ak_sz nptrs = 100000;
+    
+    void* parr[nptrs] = { 0 };
+    
+    for (ak_sz i = 0; i != nptrs; ++i)
+    {
+        parr[i] = ak_slab_alloc(&root);
+        // parr[i] = malloc(8);
+    }
+
+    for (ak_sz i = 0; i != nptrs; ++i)
+    {
+        ak_slab_free(parr[i]);
+        // free(parr[i]);
     }
 }
