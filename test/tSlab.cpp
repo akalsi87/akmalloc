@@ -21,7 +21,7 @@ CPP_TEST( slab )
     }
 
     {// single alloc and free
-        void* p = ak_slab_alloc(&root, 8);
+        void* p = ak_slab_alloc(&root);
         TEST_TRUE(root.recent == ak_page_start_before(p));
         TEST_TRUE(root.fd != (ak_slab*)&root);
         ak_slab_free(p);

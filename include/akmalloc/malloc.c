@@ -52,6 +52,7 @@
 static void* ak_os_alloc(size_t sz)
 {
     static const ak_sz pgsz = ak_page_size();
+    static_cast<void>(pgsz);
     AKMALLOC_ASSERT(pgsz == AKMALLOC_DEFAULT_PAGE_SIZE);
     return AKMALLOC_MMAP(sz);
 }
@@ -209,7 +210,7 @@ static void* ak_slab_alloc_pvt(ak_slab_root* root, ak_slab* s, ak_slab** precent
     return ak_slab_alloc_idx(s, ntz);
 }
 
-static void* ak_slab_alloc(ak_slab_root* s, size_t sz)
+static void* ak_slab_alloc(ak_slab_root* s)
 {
     AKMALLOC_ASSERT(s->fd->sz == s->sz);
     return ak_slab_alloc_pvt(s, s->recent, &(s->recent));
