@@ -99,7 +99,7 @@ struct ak_slab_tag
     ak_bitset32  avail;
 };
 
-static void ak_slab_init_root(ak_slab_root* s, ak_sz sz)
+ak_inline static void ak_slab_init_root(ak_slab_root* s, ak_sz sz)
 {
     s->fd = s->bk = (ak_slab*)s;
     s->bytes = 0;
@@ -108,7 +108,7 @@ static void ak_slab_init_root(ak_slab_root* s, ak_sz sz)
     ak_bitset_clear_all(&(s->avail));
 }
 
-static ak_slab* ak_slab_init(void* mem, ak_sz bytes, ak_sz sz)
+ak_inline static ak_slab* ak_slab_init(void* mem, ak_sz bytes, ak_sz sz)
 {
     AKMALLOC_ASSERT(mem);
     AKMALLOC_ASSERT(sz > 0);
@@ -135,7 +135,7 @@ ak_inline static ak_sz ak_num_slabs_per_page(ak_sz sz)
     return (szofslabdata > maxsz) ? 1 : (AKMALLOC_DEFAULT_PAGE_SIZE / szofslabdata);
 }
 
-ak_inline static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk)
+static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk)
 {
     // try to acquire a page and fit as many slabs as possible in
     char* mem = (char*)ak_os_alloc(AKMALLOC_DEFAULT_PAGE_SIZE);
@@ -143,8 +143,10 @@ ak_inline static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk)
         if (!mem) { return 0; }
     }
 
-    ak_sz nslabs = ak_num_slabs_per_page(sz);
-    ak_slab* firstslab = ak_slab_init(mem, AKMALLOC_DEFAULT_PAGE_SIZE/nslabs, sz);
+    const ak_sz nslabs = ak_num_slabs_per_page(sz);
+    const ak_sz nbytes = AKMALLOC_DEFAULT_PAGE_SIZE/nslabs;
+
+    ak_slab* firstslab = ak_slab_init(mem, nbytes, sz);
 
     ak_sz i = 0;
     ak_slab* curr = firstslab;
@@ -153,7 +155,7 @@ ak_inline static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk)
         curr->bk = prev;
         prev->fd = curr;
         ak_slab* next;
-        next = ak_slab_init((char*)curr + curr->bytes, curr->bytes, sz);
+        next = ak_slab_init((char*)curr + nbytes, nbytes, sz);
         curr->fd = next;
         prev = curr;
         curr = next;
@@ -181,8 +183,16 @@ ak_inline static void* ak_slab_alloc_idx(ak_slab* s, int idx)
     return ak_slab_2_mem(s) + (idx * s->sz);
 }
 
-static void* ak_slab_alloc_pvt(ak_slab_root* root, ak_slab* s)
+ak_inline static void ak_slab_free_idx(ak_slab* s, int idx)
 {
+    AKMALLOC_ASSERT(!ak_bitset_get(&(s->avail), idx));
+    ak_bitset_set(&(s->avail), idx);
+}
+
+static void* ak_slab_alloc(ak_slab_root* root)
+{
+    AKMALLOC_ASSERT(root->fd->sz == root->sz);
+    ak_slab* s = root->fd;
     ak_u32 ntz = ak_bitset_num_trailing_zeros(&(s->avail));
     if (ntz == 32) {
         // check existing slabs
@@ -196,8 +206,7 @@ static void* ak_slab_alloc_pvt(ak_slab_root* root, ak_slab* s)
             }
         }
         // create a new slab
-        s = root->fd;
-        ak_slab* nslab = ak_slab_new(s->sz, s->fd, s);
+        ak_slab* nslab = ak_slab_new(root->sz, root->fd, (ak_slab*)root);
         if (nslab) {
             return ak_slab_alloc_idx(nslab, 0);
         }
@@ -207,33 +216,25 @@ static void* ak_slab_alloc_pvt(ak_slab_root* root, ak_slab* s)
     return ak_slab_alloc_idx(s, ntz);
 }
 
-static void* ak_slab_alloc(ak_slab_root* s)
-{
-    AKMALLOC_ASSERT(s->fd->sz == s->sz);
-    return ak_slab_alloc_pvt(s, s->fd);
-}
-
 static void ak_slab_free(void* p)
 {
     char* mem = (char*)p;
 
     // round to page
     ak_slab* firstslab = (ak_slab*)(ak_page_start_before(p));
-    ak_u32 checkall = 0;
     AKMALLOC_ASSERT(firstslab->magic == AK_SLAB_MAGIC);
 
     ak_slab* rightslab = 0;
     {// free to the right slab
         ak_sz nslabsoff = (mem - (char*)firstslab)/firstslab->bytes;
-        ak_slab* rightslab = (ak_slab*)((char*)firstslab + nslabsoff*firstslab->bytes);
+        rightslab = (ak_slab*)((char*)firstslab + nslabsoff*firstslab->bytes);
         ak_sz idx = (mem - (char*)ak_slab_2_mem(rightslab))/rightslab->sz;
         AKMALLOC_ASSERT(rightslab->sz == firstslab->sz);
-        AKMALLOC_ASSERT(!ak_bitset_get(&(rightslab->avail), idx));
-        ak_bitset_set(&(rightslab->avail), idx);
-        checkall = ak_slab_all_free(rightslab);
+        ak_slab_free_idx(rightslab, idx);
     }
 
-    if (checkall && ((rightslab != firstslab) || ak_slab_all_free(firstslab))) {
+    if (ak_slab_all_free(rightslab) &&
+        ((rightslab == firstslab) || ak_slab_all_free(firstslab))) {
         int allfree = 1;
         ak_slab* curr = firstslab->fd;
         ak_slab* prev = firstslab;

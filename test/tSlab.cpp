@@ -26,7 +26,7 @@ CPP_TEST( slab )
         TEST_TRUE(root.fd == (ak_slab*)&root);
     }
 
-    static const ak_sz nptrs = 100000;
+    static const ak_sz nptrs = 1000000;
     
     void* parr[nptrs] = { 0 };
     
