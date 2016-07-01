@@ -8,7 +8,9 @@
 #include "akmalloc/detail/bitset.h"
 
 CPP_TEST( bitSetIncludeWorks )
-{ }
+{
+    static_cast<void>(0);
+}
 
 static const int NUM_BITS = sizeof(ak_bitset32) * 8;
 
@@ -54,7 +56,7 @@ CPP_TEST( bitSetClearSetGet )
     TEST_TRUE(bs == 0);
 
     ak_bitset_set_n(&bs, 29, 3);
-    TEST_TRUE(bs == (7 << 29));
+    TEST_TRUE(bs == (ak_u32)(7 << 29));
     TEST_TRUE(ak_bitset_get_n(&bs, 29, 3) == 7);
     ak_bitset_clear_n(&bs, 29, 3);
     TEST_TRUE(bs == 0);

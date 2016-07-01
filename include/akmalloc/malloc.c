@@ -31,7 +31,11 @@
 #endif
 
 #if !defined(AKMALLOC_ASSERT)
-#  define AKMALLOC_ASSERT AKMALLOC_DEFAULT_ASSERT
+#  if !defined(NDEBUG)
+#    define AKMALLOC_ASSERT AKMALLOC_DEFAULT_ASSERT
+#  else
+#    define AKMALLOC_ASSERT(...) do { } while(0)
+#  endif
 #endif
 
 /***********************************************
@@ -72,6 +76,20 @@ ak_inline static void* ak_page_start_before(void* p)
 
 typedef struct ak_slab_tag ak_slab;
 
+typedef struct ak_slab_root_tag ak_slab_root;
+
+struct ak_slab_root_tag
+{
+    ak_slab*     fd;
+    ak_slab*     bk;
+    ak_u32       bytes;
+    ak_u32       sz;
+    ak_u32       magic;
+    ak_bitset32  avail;
+
+    ak_slab*     recent;
+};
+
 struct ak_slab_tag
 {
     ak_slab*     fd;
@@ -82,13 +100,14 @@ struct ak_slab_tag
     ak_bitset32  avail;
 };
 
-static void ak_slab_init_root(ak_slab* s, ak_sz sz)
+static void ak_slab_init_root(ak_slab_root* s, ak_sz sz)
 {
-    s->fd = s->bk = s;
+    s->fd = s->bk = (ak_slab*)s;
     s->bytes = 0;
     s->sz = sz;
     s->magic = AK_SLAB_MAGIC;
     ak_bitset_clear_all(&(s->avail));
+    s->recent = s->fd;
 }
 
 static ak_slab* ak_slab_init(void* mem, ak_sz bytes, ak_sz sz)
@@ -113,8 +132,9 @@ static ak_slab* ak_slab_init(void* mem, ak_sz bytes, ak_sz sz)
 
 ak_inline static ak_sz ak_num_slabs_per_page(ak_sz sz)
 {
-    ak_sz noverhead = ((sizeof(ak_slab) + sz - 1) / sz);
-    return ((((32 - noverhead) * sz) + 255) / 256) * (AKMALLOC_DEFAULT_PAGE_SIZE / 256);
+    static const ak_sz maxsz = AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab);
+    const ak_sz szofslabdata = sz * 32;
+    return (szofslabdata > maxsz) ? 1 : (AKMALLOC_DEFAULT_PAGE_SIZE / szofslabdata);
 }
 
 static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk)
@@ -134,12 +154,15 @@ static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk)
     for (; i < nslabs - 1; ++i) {
         curr->bk = prev;
         prev->fd = curr;
-        ak_slab* next = ak_slab_init((char*)curr + curr->bytes, curr->bytes, sz);
+        ak_slab* next;
+        next = ak_slab_init((char*)curr + curr->bytes, curr->bytes, sz);
         curr->fd = next;
         prev = curr;
         curr = next;
     }
-    prev->fd = fd;
+    curr->bk = prev;
+    curr->fd = fd;
+    fd->bk = curr;
 
     return firstslab;
 }
@@ -151,7 +174,7 @@ ak_inline static char* ak_slab_2_mem(ak_slab* s)
 
 ak_inline static int ak_slab_all_free(ak_slab* s)
 {
-    return ak_bitset_num_trailing_ones(&(s->avail)) == ((s->bytes - sizeof(ak_slab))/s->sz);
+    return ak_bitset_num_trailing_ones(&(s->avail)) == (int)((s->bytes - sizeof(ak_slab))/s->sz);
 }
 
 ak_inline static void* ak_slab_alloc_idx(ak_slab* s, int idx)
@@ -161,29 +184,35 @@ ak_inline static void* ak_slab_alloc_idx(ak_slab* s, int idx)
     return ak_slab_2_mem(s) + (idx * s->sz);
 }
 
-static void* ak_slab_alloc_pvt(ak_slab* s, ak_slab* root)
+static void* ak_slab_alloc_pvt(ak_slab_root* root, ak_slab* s, ak_slab** precent)
 {
     ak_u32 ntz = ak_bitset_num_trailing_zeros(&(s->avail));
     if (ntz == 32) {
-        if (s->fd != root) {
-            return ak_slab_alloc_pvt(s->fd, root);
+        ak_slab* const startslab = s;
+        while (s->fd != startslab) {
+            s = s->fd;
+            ak_u32 ntz = ak_bitset_num_trailing_zeros(&(s->avail));
+            if (ntz != 32) {
+                *precent = s;
+                return ak_slab_alloc_idx(s, ntz);
+            }
         }
-        ak_slab* nslab = ak_slab_new(s->sz, s->fd, s);
+        ak_slab* nslab = ak_slab_new(startslab->sz, startslab->fd, startslab);
         if (nslab) {
+            *precent = nslab;
             return ak_slab_alloc_idx(nslab, 0);
         }
         return 0;
+    } else {
+        *precent = s;
     }
     return ak_slab_alloc_idx(s, ntz);
 }
 
-static void* ak_slab_alloc(ak_slab* s, size_t sz)
+static void* ak_slab_alloc(ak_slab_root* s, size_t sz)
 {
-    AKMALLOC_ASSERT(sz == s->sz);
-    // move ahead from root
-    ak_slab* root = s;
-    s = s->fd;
-    return ak_slab_alloc_pvt(s, root);
+    AKMALLOC_ASSERT(s->fd->sz == s->sz);
+    return ak_slab_alloc_pvt(s, s->recent, &(s->recent));
 }
 
 static void ak_slab_free(void* p)
@@ -201,7 +230,7 @@ static void ak_slab_free(void* p)
         ak_sz idx = (mem - (char*)ak_slab_2_mem(rightslab))/rightslab->sz;
         AKMALLOC_ASSERT(rightslab->sz == firstslab->sz);
         AKMALLOC_ASSERT(!ak_bitset_get(&(rightslab->avail), idx));
-        ak_bitset_clear(&(rightslab->avail), idx);
+        ak_bitset_set(&(rightslab->avail), idx);
         checkall = ak_slab_all_free(rightslab);
     }
 
@@ -215,8 +244,8 @@ static void ak_slab_free(void* p)
                 allfree = 0;
                 break;
             }
-            ak_slab* next = (ak_slab*)((char*)curr + (AKMALLOC_DEFAULT_PAGE_SIZE / nslabs));
-            AKMALLOC_ASSERT(next == curr->fd);
+            ak_slab* next = (ak_slab*)((char*)curr + curr->bytes);
+            AKMALLOC_ASSERT((i == (nslabs - 1)) || (next == curr->fd));
             AKMALLOC_ASSERT(curr->magic == AK_SLAB_MAGIC);
             curr = next;
         }
