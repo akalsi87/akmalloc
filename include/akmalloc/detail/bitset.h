@@ -42,24 +42,24 @@ ak_inline static void ak_bitset_clear_all(ak_bitset32* bs)
 
 ak_inline static void ak_bitset_set(ak_bitset32* bs, int i)
 {
-    *bs |= (0x00000001 << i);
+    *bs = *bs | (0x00000001 << i);
 }
 
 ak_inline static void ak_bitset_clear(ak_bitset32* bs, int i)
 {
-    *bs &= ~(0x00000001 << i);
+    *bs = *bs & (~(0x00000001 << i));
 }
 
 ak_inline static void ak_bitset_set_n(ak_bitset32* bs, int i, int n)
 {
     ak_bitset32 mask = ~(0xFFFFFFFF << n);
-    *bs |= (mask << i);
+    *bs = *bs | (mask << i);
 }
 
 ak_inline static void ak_bitset_clear_n(ak_bitset32* bs, int i, int n)
 {
     ak_bitset32 mask = ~(0xFFFFFFFF << n);
-    *bs &= ~(mask << i);
+    *bs = *bs & (~(mask << i));
 }
 
 ak_inline static ak_bitset32 ak_bitset_get(const ak_bitset32* bs, int i)

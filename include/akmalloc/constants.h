@@ -13,7 +13,7 @@
 #define AKSIZE_MAX (~(ak_sz)0)
 
 #define AKMALLOC_DEFAULT_PAGE_SIZE 4096
-#define AKMALLOC_DEFAULT_LARGE_BLOCK_SIZE ((ak_sz)1) << 21
+#define AKMALLOC_DEFAULT_LARGE_BLOCK_SIZE (AKSIZE_ONE << 21)
 
 /*
  * Cache line macros

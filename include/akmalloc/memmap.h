@@ -60,7 +60,7 @@ static void ak_munmap(void* p, ak_sz s)
 
 #endif
 
-#define AKMALLOC_DEFAULT_GETPAGESIZE ak_page_size()
+#define AKMALLOC_DEFAULT_GETPAGESIZE ak_page_size
 #define AKMALLOC_DEFAULT_MMAP(s) ak_mmap((s))
 #define AKMALLOC_DEFAULT_MUNMAP(a, s) ak_munmap((a), (s))
 

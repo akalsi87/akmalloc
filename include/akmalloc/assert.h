@@ -9,10 +9,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define AKMALLOC_DEFAULT_ASSERT(x)                                       \
-  if (!(x)) {                                                            \
-      fprintf(stderr, "AKMALLOC_ASSERT: failed condition `" #x "'\n");   \
-      abort();                                                           \
+#define AKMALLOC_DEFAULT_ASSERT(x)                                           \
+  if (!(x)) {                                                                \
+      fprintf(stderr, "%s\n", "AKMALLOC_ASSERT: failed condition `" #x "'"); \
+      abort();                                                               \
   }
 
 #endif/*AKMALLOC_ASSERT_H*/
