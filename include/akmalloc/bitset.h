@@ -227,82 +227,92 @@ ak_inline static void ak_bitset512_clear_all(ak_bitset512* bs)
     ak_bitset_clear_all(&(bs->a15));
 }
 
+ak_inline static ak_bitset32* ak_bitset512_get_set_num(ak_bitset512* bs, int idx)
+{
+    switch (idx) {
+        case 0:
+            return &(bs->a15);
+        case 1:
+            return &(bs->a14);
+        case 2:
+            return &(bs->a13);
+        case 3:
+            return &(bs->a12);
+        case 4:
+            return &(bs->a11);
+        case 5:
+            return &(bs->a10);
+        case 6:
+            return &(bs->a9);
+        case 7:
+            return &(bs->a8);
+        case 8:
+            return &(bs->a7);
+        case 9:
+            return &(bs->a6);
+        case 10:
+            return &(bs->a5);
+        case 11:
+            return &(bs->a4);
+        case 12:
+            return &(bs->a3);
+        case 13:
+            return &(bs->a2);
+        case 14:
+            return &(bs->a1);
+        case 15:
+            return &(bs->a0);
+    }
+    return 0;
+}
+
 ak_inline static ak_bitset32* ak_bitset512_get_set(ak_bitset512* bs, int idx)
 {
-    switch (idx >> 5) {
+    return ak_bitset512_get_set_num(bs, idx >> 5);
+}
+
+ak_inline static const ak_bitset32* ak_bitset512_get_set_num_const(const ak_bitset512* bs, int idx)
+{
+    switch (idx) {
         case 0:
-            return &(bs->a0);
-        case 1:
-            return &(bs->a1);
-        case 2:
-            return &(bs->a2);
-        case 3:
-            return &(bs->a3);
-        case 4:
-            return &(bs->a4);
-        case 5:
-            return &(bs->a5);
-        case 6:
-            return &(bs->a6);
-        case 7:
-            return &(bs->a7);
-        case 8:
-            return &(bs->a8);
-        case 9:
-            return &(bs->a9);
-        case 10:
-            return &(bs->a10);
-        case 11:
-            return &(bs->a11);
-        case 12:
-            return &(bs->a12);
-        case 13:
-            return &(bs->a13);
-        case 14:
-            return &(bs->a14);
-        case 15:
             return &(bs->a15);
+        case 1:
+            return &(bs->a14);
+        case 2:
+            return &(bs->a13);
+        case 3:
+            return &(bs->a12);
+        case 4:
+            return &(bs->a11);
+        case 5:
+            return &(bs->a10);
+        case 6:
+            return &(bs->a9);
+        case 7:
+            return &(bs->a8);
+        case 8:
+            return &(bs->a7);
+        case 9:
+            return &(bs->a6);
+        case 10:
+            return &(bs->a5);
+        case 11:
+            return &(bs->a4);
+        case 12:
+            return &(bs->a3);
+        case 13:
+            return &(bs->a2);
+        case 14:
+            return &(bs->a1);
+        case 15:
+            return &(bs->a0);
     }
     return 0;
 }
 
 ak_inline static const ak_bitset32* ak_bitset512_get_set_const(const ak_bitset512* bs, int idx)
 {
-    switch (idx >> 5) {
-        case 0:
-            return &(bs->a0);
-        case 1:
-            return &(bs->a1);
-        case 2:
-            return &(bs->a2);
-        case 3:
-            return &(bs->a3);
-        case 4:
-            return &(bs->a4);
-        case 5:
-            return &(bs->a5);
-        case 6:
-            return &(bs->a6);
-        case 7:
-            return &(bs->a7);
-        case 8:
-            return &(bs->a8);
-        case 9:
-            return &(bs->a9);
-        case 10:
-            return &(bs->a10);
-        case 11:
-            return &(bs->a11);
-        case 12:
-            return &(bs->a12);
-        case 13:
-            return &(bs->a13);
-        case 14:
-            return &(bs->a14);
-        case 15:
-            return &(bs->a15);
-    }
-    return 0;
+    return ak_bitset512_get_set_num_const(bs, idx >> 5);
 }
 
 ak_inline static void ak_bitset512_set(ak_bitset512* bs, int i)
@@ -340,32 +350,88 @@ ak_inline static ak_bitset512 ak_bitset512_get_n(const ak_bitset512* bs, int i, 
 ak_inline static int ak_bitset512_num_leading_zeros(const ak_bitset512* bs)
 {
     int nlz = 0;
-    for (int i = 0; i != 512; i += 32) {
-        nlz = ak_bitset_num_leading_zeros(ak_bitset512_get_set_const(bs, i));
-        if (nlz != 32) {
-            break;
-        }
-    }
+    int cur = 0;
+
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a0)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a1)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a2)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a3)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a4)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a5)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a6)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a7)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a8)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a9)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a10)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a11)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a12)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a13)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a14)));
+    if (cur != 32) { return nlz; }
+    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a15)));
+
     return nlz;
 }
 
 ak_inline static int ak_bitset512_num_trailing_zeros(const ak_bitset512* bs)
 {
     int ntz = 0;
-    for (int i = 480; i >= 0; i -= 32) {
-        ntz = ak_bitset_num_trailing_zeros(ak_bitset512_get_set_const(bs, i));
-        if (ntz != 32) {
-            break;
-        }
-    }
+    int cur = 0;
+
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a15)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a14)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a13)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a12)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a11)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a10)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a9)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a8)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a7)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a6)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a5)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a4)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a3)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a2)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a1)));
+    if (cur != 32) { return ntz; }
+    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a0)));
+
     return ntz;
 }
 
 ak_inline static int ak_bitset512_num_leading_ones(const ak_bitset512* bs)
 {
     ak_bitset512 copy = *bs;
-    for (int i = 0; i != 512; i += 32) {
-        ak_bitset32* sbs = ak_bitset512_get_set(&copy, i);
+    for (int i = 0; i != 16; ++i) {
+        ak_bitset32* sbs = ak_bitset512_get_set_num(&copy, i);
         *sbs = ~(*sbs);
     }
     return ak_bitset512_num_leading_zeros(&copy);
@@ -374,8 +440,8 @@ ak_inline static int ak_bitset512_num_leading_ones(const ak_bitset512* bs)
 ak_inline static int ak_bitset512_num_trailing_ones(const ak_bitset512* bs)
 {
     ak_bitset512 copy = *bs;
-    for (int i = 0; i != 512; i += 32) {
-        ak_bitset32* sbs = ak_bitset512_get_set(&copy, i);
+    for (int i = 0; i != 16; ++i) {
+        ak_bitset32* sbs = ak_bitset512_get_set_num(&copy, i);
         *sbs = ~(*sbs);
     }
     return ak_bitset512_num_trailing_zeros(&copy);

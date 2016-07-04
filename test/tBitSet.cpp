@@ -61,3 +61,30 @@ CPP_TEST( bitSetClearSetGet )
     ak_bitset_clear_n(&bs, 29, 3);
     TEST_TRUE(bs == 0);
 }
+
+CPP_TEST( bs512 )
+{
+    ak_bitset512 bs;
+    ak_bitset512_clear_all(&bs);
+
+    TEST_TRUE(ak_bitset512_num_trailing_zeros(&bs) == 512);
+    TEST_TRUE(ak_bitset512_num_leading_zeros(&bs) == 512);
+
+    ak_bitset512_set(&bs, 100);
+    int tz = ak_bitset512_num_trailing_zeros(&bs);
+    int lz = ak_bitset512_num_leading_zeros(&bs);
+    TEST_TRUE(tz == 100);
+    TEST_TRUE(lz == 411);
+
+    ak_bitset512_set_all(&bs);
+
+    TEST_TRUE(ak_bitset512_num_trailing_ones(&bs) == 512);
+    TEST_TRUE(ak_bitset512_num_leading_ones(&bs) == 512);
+
+    ak_bitset512_clear(&bs, 100);
+    int to = ak_bitset512_num_trailing_ones(&bs);
+    int lo = ak_bitset512_num_leading_ones(&bs);
+    TEST_TRUE(to == 100);
+    TEST_TRUE(lo == 411);
+}
+
