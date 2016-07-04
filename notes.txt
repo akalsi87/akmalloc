@@ -1,0 +1,5 @@
+Currently, works well for powers of 2 sizes less than 512.
+
+This is because we assume no more than 32 things fit in a slab, and we fit multiple slabs per page if possible. So a slab of 28-byte things is 896 bytes per slab of 32 and we can fit only 4 such complete slabs per page and end up wasting a significant portion of the page.
+
+We could use a larger bitset type, (ak_bitset512) for these cases and use ak_bitset32 for the others or unconditionally use bitset512. By doing so we waste some extra space for simplicity but we dont need multiple slabs per page.

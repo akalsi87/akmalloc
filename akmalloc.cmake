@@ -26,13 +26,15 @@ set(akmalloc_exp_hdr
     ${xprt}/atomic.h;
     ${xprt}/config.h;
     ${xprt}/constants.h;
-    ${xprt}/detail/bitset.h;
+    ${xprt}/bitset.h;
     ${xprt}/inline.h;
     ${xprt}/malloc.h;
     ${xprt}/memmap.h;
     ${xprt}/threadlocal.h;
     ${xprt}/types.h;
     ${xprt}/utils.h;
+    ${xprt}/setup.h;
+    ${xprt}/slab.h;
     ${xprt}/rc.h;
     )
 

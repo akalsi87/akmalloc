@@ -5,7 +5,7 @@
 
 #include "unittest.hpp"
 
-#include "akmalloc/detail/bitset.h"
+#include "akmalloc/bitset.h"
 
 CPP_TEST( bitSetIncludeWorks )
 {
