@@ -14,4 +14,12 @@
 #  define ak_inline __inline__ __attribute__((always_inline))
 #endif/*AKMALLOC_MSVC*/
 
+#if AKMALLOC_MSVC
+#  define ak_likely(x) x
+#  define ak_unlikely(x) x
+#else
+#  define ak_likely(x) __builtin_expect(!!(x), 1)
+#  define ak_unlikely(x) __builtin_expect(!!(x), 0)
+#endif/*AKMALLOC_MSVC*/
+
 #endif/*AKMALLOC_INLINE_H*/

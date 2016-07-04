@@ -11,7 +11,7 @@
 
 #define AKMALLOC_DEFAULT_ASSERT(x)                                           \
   if (!(x)) {                                                                \
-      fprintf(stderr, "%s\n", "AKMALLOC_ASSERT: failed condition `" #x "'"); \
+      fprintf(stderr, "%s (%d) : %s\n", __FILE__, __LINE__, "AKMALLOC_ASSERT: failed condition `" #x "'"); \
       abort();                                                               \
   }
 

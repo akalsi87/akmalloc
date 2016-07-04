@@ -13,20 +13,28 @@ CPP_TEST( slab )
     ak_slab_init_root(&root, 8);
 
     {// test root
-        TEST_TRUE(root.bk == (ak_slab*)&root);
-        TEST_TRUE(root.fd == (ak_slab*)&root);
+        TEST_TRUE(root.partial_root.fd == &(root.partial_root));
+        TEST_TRUE(root.partial_root.bk == &(root.partial_root));
+        TEST_TRUE(root.full_root.fd == &(root.full_root));
+        TEST_TRUE(root.full_root.bk == &(root.full_root));
         TEST_TRUE(root.sz == 8);
         TEST_TRUE(ak_num_slabs_per_page(8) == 16);
     }
 
     {// single alloc and free
         void* p = ak_slab_alloc(&root);
-        TEST_TRUE(root.fd != (ak_slab*)&root);
+        TEST_TRUE(root.partial_root.fd != &(root.partial_root));
+        TEST_TRUE(root.full_root.fd == &(root.full_root));
+        TEST_TRUE(root.partial_root.bk != &(root.partial_root));
+        TEST_TRUE(root.full_root.bk == &(root.full_root));
         ak_slab_free(p);
-        TEST_TRUE(root.fd == (ak_slab*)&root);
+        TEST_TRUE(root.partial_root.fd == &(root.partial_root));
+        TEST_TRUE(root.full_root.fd == &(root.full_root));
+        TEST_TRUE(root.partial_root.bk == &(root.partial_root));
+        TEST_TRUE(root.full_root.bk == &(root.full_root));
     }
 
-    static const ak_sz nptrs = 1000000;
+    static const ak_sz nptrs = 10000;
     
     void* parr[nptrs] = { 0 };
     
