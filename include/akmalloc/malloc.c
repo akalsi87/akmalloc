@@ -95,6 +95,7 @@ struct ak_slab_root_tag
 {
     ak_u32 sz;
     ak_u32 magic;
+    ak_u32 npages;
 
     ak_slab partial_root;
     ak_slab full_root;
@@ -135,10 +136,11 @@ ak_inline static void ak_slab_init_chain_head(ak_slab* s, ak_slab_root* rootp)
     ak_bitset_clear_all(&(s->avail));
 }
 
-ak_inline static void ak_slab_init_root(ak_slab_root* s, ak_sz sz)
+ak_inline static void ak_slab_init_root(ak_slab_root* s, ak_sz sz, ak_sz npages)
 {
     s->sz = sz;
     s->magic = AK_SLAB_ROOT_MAGIC;
+    s->npages = npages;
 
     ak_slab_init_chain_head(&(s->partial_root), s);
     ak_slab_init_chain_head(&(s->full_root), s);
@@ -172,14 +174,8 @@ ak_inline static ak_sz ak_num_slabs_per_page(ak_sz sz)
     return (szofslabdata > maxsz) ? 1 : (AKMALLOC_DEFAULT_PAGE_SIZE / szofslabdata);
 }
 
-static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
+static ak_slab* ak_slab_new_pvt(char* mem, ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
-    // try to acquire a page and fit as many slabs as possible in
-    char* mem = (char*)ak_os_alloc(AKMALLOC_DEFAULT_PAGE_SIZE);
-    {// return if no mem
-        if (ak_unlikely(!mem)) { return 0; }
-    }
-
     const ak_sz nslabs = ak_num_slabs_per_page(sz);
     const ak_sz nbytes = AKMALLOC_DEFAULT_PAGE_SIZE/nslabs;
 
@@ -189,16 +185,35 @@ static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* ro
     ak_slab* curr = firstslab;
     ak_slab* prev = bk;
     for (; i < nslabs - 1; ++i) {
-        ak_slab_link_bk(curr, prev);
+        ak_slab_link_fd(prev, curr);
         ak_slab* next = ak_slab_init((char*)curr + nbytes, nbytes, sz, root);
         curr->fd = next;
         prev = curr;
         curr = next;
     }
-    curr->bk = prev;
+    ak_slab_link_fd(prev, curr);
     ak_slab_link_fd(curr, fd);
 
     return firstslab;
+}
+
+static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
+{
+    const int NPAGES = root->npages;
+    // try to acquire a page and fit as many slabs as possible in
+    char* mem = (char*)ak_os_alloc(NPAGES * AKMALLOC_DEFAULT_PAGE_SIZE);
+    {// return if no mem
+        if (ak_unlikely(!mem)) { return 0; }
+    }
+
+    for (int i = 0; i < NPAGES - 1; ++i) {
+        bk = ak_slab_new_pvt(mem, sz, (ak_slab*)(mem + AKMALLOC_DEFAULT_PAGE_SIZE), bk, root);
+        mem += AKMALLOC_DEFAULT_PAGE_SIZE;
+    }
+
+    ak_slab_new_pvt(mem, sz, fd, bk, root);
+
+    return (ak_slab*)mem;
 }
 
 ak_inline static char* ak_slab_2_mem(ak_slab* s)
