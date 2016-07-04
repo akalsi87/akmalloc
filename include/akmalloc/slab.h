@@ -30,11 +30,15 @@ struct ak_slab_root_tag
     ak_u32 sz;
     ak_u32 npages;
     ak_u32 nempty;
+    ak_u32 release;
 
     ak_slab partial_root;
     ak_slab full_root;
     ak_slab empty_root;
 };
+
+static const ak_u32 RELEASE_RATE = 512;
+static const ak_u32 MAX_PAGES_TO_FREE = 50;
 
 ak_inline static void ak_slab_unlink(ak_slab* s)
 {
@@ -78,6 +82,7 @@ ak_inline static void ak_slab_init_root(ak_slab_root* s, ak_sz sz)
     s->sz = sz;
     s->npages = ak_num_pages_for_sz(sz);
     s->nempty = 0;
+    s->release = 0;
 
     ak_slab_init_chain_head(&(s->partial_root), s);
     ak_slab_init_chain_head(&(s->full_root), s);
@@ -98,7 +103,7 @@ ak_inline static ak_slab* ak_slab_init(void* mem, ak_sz sz, ak_sz navail, ak_sla
     s->fd = s->bk = 0;
     s->root = root;
     ak_bitset512_clear_all(&(s->avail));
-    for (int i = 0; i < navail; ++i) {
+    for (ak_sz i = 0; i < navail; ++i) {
         ak_bitset512_set(&(s->avail), i);
     }
 
@@ -254,27 +259,24 @@ static void ak_slab_free(void* p)
         ak_slab_unlink(slab);
         ak_slab_link(slab, &(root->partial_root), root->partial_root.bk);
     } else if (ak_slab_all_free(slab)) {
-        static const ak_u32 MAX_EMPTY = 4000;
-        static const ak_u32 NUM_TO_FREE = 500;
-        //
-        // to return memory to the OS, we see if all slabs from a page are free.
-        // cannot rely on fd/bk as they may be linked to different slabs than
-        // their siblings. traverse address wise.
-        //
         ak_slab_unlink(slab);
         ak_slab_link(slab, root->empty_root.fd, &(root->empty_root));
         ++(root->nempty);
+        ++(root->release);
 
-        if (root->nempty >= MAX_EMPTY) {
-            int ct = 0;
+        if (root->release >= RELEASE_RATE) {
+            ak_u32 ct = 0;
+            ak_u32 numtofree = root->nempty/2;
+            numtofree = numtofree > MAX_PAGES_TO_FREE ? MAX_PAGES_TO_FREE : numtofree;
             ak_slab* s = (root->empty_root.fd);
-            for (; ct != NUM_TO_FREE; ++ct) {
+            for (; ct != numtofree; ++ct) {
                 ak_slab* next = s->fd;
                 ak_slab_unlink(s);
                 ak_os_free(s, AKMALLOC_DEFAULT_PAGE_SIZE);
                 s = next;
             }
-            root->nempty -= NUM_TO_FREE;
+            root->nempty -= numtofree;
+            root->release = 0;
         }
     }
 }
