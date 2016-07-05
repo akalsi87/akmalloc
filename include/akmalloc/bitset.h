@@ -466,6 +466,77 @@ ak_inline static ak_bitset512 ak_bitset512_get_n(const ak_bitset512* bs, int i, 
         } } } } } } } } } } } } } } }                           \
     }
 
+#define ak_bitset512_fill_num_leading_ones(bs, nlz)             \
+    nlz = 0;                                                    \
+    {                                                           \
+        int cur = 0;                                            \
+        ak_bitset32 mybs;                                       \
+        mybs = ~(bs->a0);                                       \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a1);                                       \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a2);                                       \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a3);                                       \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a4);                                       \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a5);                                       \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a6);                                       \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a7);                                       \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a8);                                       \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a9);                                       \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a10);                                      \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a11);                                      \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a12);                                      \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a13);                                      \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a14);                                      \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a15);                                      \
+        ak_bitset_fill_num_leading_zeros(&mybs, cur);           \
+        nlz += cur;                                             \
+        } } } } } } } } } } } } } } }                           \
+    }
+
 ak_inline static int ak_bitset512_num_leading_zeros(const ak_bitset512* bs)
 {
     int nlz = 0;
@@ -527,6 +598,78 @@ ak_inline static int ak_bitset512_num_leading_zeros(const ak_bitset512* bs)
         } } } } } } } } } } } } } } }                           \
     }
 
+#define ak_bitset512_fill_num_trailing_ones(bs, ntz)            \
+    ntz = 0;                                                    \
+    {                                                           \
+        int cur = 0;                                            \
+        ak_bitset32 mybs;                                       \
+        mybs = ~(bs->a15);                                      \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a14);                                      \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a13);                                      \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a12);                                      \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a11);                                      \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a10);                                      \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a9);                                       \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a8);                                       \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a7);                                       \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a6);                                       \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a5);                                       \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a4);                                       \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a3);                                       \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a2);                                       \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a1);                                       \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        mybs = ~(bs->a0);                                       \
+        ak_bitset_fill_num_trailing_zeros(&mybs, cur);          \
+        ntz += cur;                                             \
+        } } } } } } } } } } } } } } }                           \
+    }
+
+
 ak_inline static int ak_bitset512_num_trailing_zeros(const ak_bitset512* bs)
 {
     int ntz = 0;
@@ -556,22 +699,16 @@ ak_inline static void ak_bitset512_flip(ak_bitset512* bs)
 
 ak_inline static int ak_bitset512_num_leading_ones(const ak_bitset512* bs)
 {
-    ak_bitset512 copy = *bs;
-    ak_bitset512* pcopy = &copy;
-    ak_bitset512_flip(pcopy);
-    int nlz;
-    ak_bitset512_fill_num_leading_zeros(pcopy, nlz);
-    return nlz;
+    int nlo;
+    ak_bitset512_fill_num_leading_ones(bs, nlo);
+    return nlo;
 }
 
 ak_inline static int ak_bitset512_num_trailing_ones(const ak_bitset512* bs)
 {
-    ak_bitset512 copy = *bs;
-    ak_bitset512* pcopy = &copy;
-    ak_bitset512_flip(pcopy);
-    int ntz;
-    ak_bitset512_fill_num_trailing_zeros(pcopy, ntz);
-    return ntz;
+    int nto;
+    ak_bitset512_fill_num_trailing_ones(bs, nto);
+    return nto;
 }
 
 
