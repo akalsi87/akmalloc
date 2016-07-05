@@ -148,21 +148,23 @@ typedef enum TimeCacheOper TimeCacheOp;
 
 #if !defined(_WIN32)
 
+#include <sys/time.h>
+
 /* (No Doxygen)
  * Cache the current time when op is TIC_OP,
  * and return the time elapsed since last cache
  * when op is TOC_OP
  */
 static double TimeCache(TimeCacheOp op) {
-    static clock_t start;
-    static clock_t end;
+    static struct timeval start;
+    static struct timeval end;
     switch (op) {
       case START_OP:
-        start = clock();
+        gettimeofday(&start, 0);
         return BAD_TIME;
       case STOP_OP:
-        end = clock();
-        return (double)(end-start) / CLOCKS_PER_SEC;
+        gettimeofday(&end, 0);
+        return 1.0e-6*((double)(end.tv_sec*1.0e6 + end.tv_usec) - (double)(start.tv_sec*1.0e6 + start.tv_usec));
     }
     return BAD_TIME;
 }

@@ -177,7 +177,7 @@ ak_inline static char* ak_slab_2_mem(ak_slab* s)
 
 static int ak_slab_all_free(ak_slab* s)
 {
-    return ak_bitset512_num_trailing_ones(&(s->avail)) == s->root->navail;
+    return ak_bitset512_num_trailing_ones(&(s->avail)) == (int)s->root->navail;
 }
 
 static int ak_slab_none_free(ak_slab* s)
