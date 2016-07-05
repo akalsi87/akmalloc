@@ -136,7 +136,7 @@ static ak_slab* ak_slab_new_alloc(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_ro
     for (int i = 0; i < NPAGES - 1; ++i) {
         ak_slab* nextpage = (ak_slab*)(cmem + AKMALLOC_DEFAULT_PAGE_SIZE);
         ak_slab* curr = ak_slab_new_pvt(cmem, sz, navail, nextpage, bk, root);
-        AKMALLOC_ASSERT(ak_bitset512_num_trailing_ones(&(curr->avail)) == navail);
+        AKMALLOC_ASSERT(ak_bitset512_num_trailing_ones(&(curr->avail)) == (int)navail);
         (void)curr;
         bk = nextpage;
         cmem += AKMALLOC_DEFAULT_PAGE_SIZE;
@@ -160,7 +160,7 @@ static ak_slab* ak_slab_new_reuse(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_ro
         ak_slab* nextpage = curr->fd;
         ak_slab_unlink(curr);
         curr = ak_slab_new_pvt((char*)curr, sz, navail, nextpage, bk, root);
-        AKMALLOC_ASSERT(ak_bitset512_num_trailing_ones(&(curr->avail)) == navail);
+        AKMALLOC_ASSERT(ak_bitset512_num_trailing_ones(&(curr->avail)) == (int)navail);
         (void)curr;
         bk = nextpage;
     }
@@ -177,7 +177,10 @@ ak_inline static char* ak_slab_2_mem(ak_slab* s)
 
 static int ak_slab_all_free(ak_slab* s)
 {
-    return ak_bitset512_num_trailing_ones(&(s->avail)) == (int)s->root->navail;
+    const ak_bitset512* pavail = &(s->avail);
+    ak_u32 nto;
+    ak_bitset512_fill_num_trailing_ones(pavail, nto);
+    return nto == s->root->navail;
 }
 
 static int ak_slab_none_free(ak_slab* s)
@@ -203,7 +206,7 @@ static void* ak_slab_search(ak_slab* s, ak_sz sz, ak_u32 navail, ak_slab** pslab
         int ntz;
         ak_bitset512_fill_num_trailing_zeros(pavail, ntz);
 
-        AKMALLOC_ASSERT(ak_bitset512_get(&(s->avail), idx));
+        AKMALLOC_ASSERT(ak_bitset512_get(&(s->avail), ntz));
         ak_bitset512_clear(&(s->avail), ntz);
         mem = ak_slab_2_mem(s) + (ntz * sz);
 
