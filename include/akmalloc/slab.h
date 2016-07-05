@@ -80,9 +80,9 @@ ak_inline static ak_sz ak_num_pages_for_sz(ak_sz sz)
 
 ak_inline static void ak_slab_init_root(ak_slab_root* s, ak_sz sz)
 {
-    s->sz = sz;
-    s->navail = (AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))/sz;
-    s->npages = ak_num_pages_for_sz(sz);
+    s->sz = (ak_u32)sz;
+    s->navail = (ak_u32)(AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))/(ak_u32)sz;
+    s->npages = (ak_u32)ak_num_pages_for_sz(sz);
     s->nempty = 0;
     s->release = 0;
 
@@ -105,14 +105,15 @@ ak_inline static ak_slab* ak_slab_init(void* mem, ak_sz sz, ak_sz navail, ak_sla
     s->fd = s->bk = 0;
     s->root = root;
     ak_bitset512_clear_all(&(s->avail));
-    for (ak_sz i = 0; i < navail; ++i) {
+    int inavail = (int)navail;
+    for (int i = 0; i < inavail; ++i) {
         ak_bitset512_set(&(s->avail), i);
     }
 
     return s;
 }
 
-static ak_slab* ak_slab_new_pvt(char* mem, ak_sz sz, ak_sz navail, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
+ak_inline static ak_slab* ak_slab_new_pvt(char* mem, ak_sz sz, ak_sz navail, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
     ak_slab* slab = ak_slab_init(mem, sz, navail, root);
     ak_slab_link(slab, fd, bk);
@@ -174,30 +175,20 @@ ak_inline static char* ak_slab_2_mem(ak_slab* s)
     return (char*)(void*)(s + 1);
 }
 
-ak_inline static int ak_slab_all_free(ak_slab* s)
+static int ak_slab_all_free(ak_slab* s)
 {
     return ak_bitset512_num_trailing_ones(&(s->avail)) == s->root->navail;
 }
 
-ak_inline static int ak_slab_none_free(ak_slab* s)
+static int ak_slab_none_free(ak_slab* s)
 {
-    return ak_bitset512_num_trailing_zeros(&(s->avail)) == 512;
+    const ak_bitset512* pavail = &(s->avail);
+    int ntz;
+    ak_bitset512_fill_num_trailing_zeros(pavail, ntz);
+    return ntz == 512;
 }
 
-ak_inline static void* ak_slab_alloc_idx(ak_slab* s, ak_sz sz, int idx)
-{
-    AKMALLOC_ASSERT(ak_bitset512_get(&(s->avail), idx));
-    ak_bitset512_clear(&(s->avail), idx);
-    return ak_slab_2_mem(s) + (idx * sz);
-}
-
-ak_inline static void ak_slab_free_idx(ak_slab* s, int idx)
-{
-    AKMALLOC_ASSERT(!ak_bitset512_get(&(s->avail), idx));
-    ak_bitset512_set(&(s->avail), idx);
-}
-
-ak_inline static void* ak_slab_search(ak_slab* s, ak_sz sz, ak_slab** pslab, int* pntz)
+static void* ak_slab_search(ak_slab* s, ak_sz sz, ak_u32 navail, ak_slab** pslab, int* pntz)
 {
     const ak_slab* const root = s;
     void* mem = 0;
@@ -207,9 +198,17 @@ ak_inline static void* ak_slab_search(ak_slab* s, ak_sz sz, ak_slab** pslab, int
         s = s->fd;
         // partial list entry must not be full
         AKMALLOC_ASSERT(ak_bitset512_num_trailing_zeros(&(s->avail)) != 512);
-        mem = ak_slab_alloc_idx(s, sz, ak_bitset512_num_trailing_zeros(&(s->avail)));
+
+        const ak_bitset512* pavail = &(s->avail);
+        int ntz;
+        ak_bitset512_fill_num_trailing_zeros(pavail, ntz);
+
+        AKMALLOC_ASSERT(ak_bitset512_get(&(s->avail), idx));
+        ak_bitset512_clear(&(s->avail), ntz);
+        mem = ak_slab_2_mem(s) + (ntz * sz);
+
         *pslab = s;
-        *pntz = ak_bitset512_num_trailing_zeros(&(s->avail));
+        *pntz = (ntz == (int)navail - 1) ? 512 : (ntz + 1);
     }
     return mem;
 }
@@ -219,7 +218,7 @@ static void* ak_slab_alloc(ak_slab_root* root)
     int ntz = 0;
     ak_slab* slab = 0;
     const ak_sz sz = root->sz;
-    void* mem = ak_slab_search(&(root->partial_root), sz, &slab, &ntz);
+    void* mem = ak_slab_search(&(root->partial_root), sz, root->navail, &slab, &ntz);
 
     if (ak_unlikely(!mem)) {
         if (root->nempty > root->npages) {
@@ -228,7 +227,9 @@ static void* ak_slab_alloc(ak_slab_root* root)
             slab = ak_slab_new_alloc(sz, root->partial_root.fd, &(root->partial_root), root);
         }
         if (ak_likely(slab)) {
-            mem = ak_slab_alloc_idx(slab, sz, 0);
+            AKMALLOC_ASSERT(ak_bitset512_get(&(slab->avail), 0));
+            ak_bitset512_clear(&(slab->avail), 0);
+            return ak_slab_2_mem(slab);
         }
     } else if (ntz == 512) {
         ak_slab_unlink(slab);
@@ -268,8 +269,9 @@ static void ak_slab_free(void* p)
     ak_slab_root* root = slab->root;
     const ak_sz sz = root->sz;
 
-    ak_sz idx = (mem - (char*)ak_slab_2_mem(slab))/sz;
-    ak_slab_free_idx(slab, idx);
+    int idx = (int)(mem - (char*)ak_slab_2_mem(slab))/(int)sz;
+    AKMALLOC_ASSERT(!ak_bitset512_get(&(slab->avail), idx));
+    ak_bitset512_set(&(slab->avail), idx);
 
     if (movetopartial) {
         // put at the back of the partial list so the full ones

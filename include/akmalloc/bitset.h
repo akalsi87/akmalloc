@@ -73,24 +73,40 @@ ak_inline static ak_bitset32 ak_bitset_get_n(const ak_bitset32* bs, int i, int n
     return (*bs & (mask << i)) >> i;
 }
 
+#if AKMALLOC_MSVC
+#  define ak_bitset_fill_num_leading_zeros(bs, out)             \
+     do {                                                       \
+        DWORD ldz = 0;                                          \
+        out = (_BitScanReverse(&ldz, *(bs))) ? (31 - ldz) : 32; \
+     } while (0)
+#else
+#  define ak_bitset_fill_num_leading_zeros(bs, out)             \
+     out = (*bs) ? __builtin_clz(*bs) : 32
+#endif
+
 ak_inline static int ak_bitset_num_leading_zeros(const ak_bitset32* bs)
 {
-#if AKMALLOC_MSVC
-    DWORD ldz = 0;
-    return (_BitScanReverse(&ldz, *bs)) ? (31 - ldz) : 32;
-#else
-    return (*bs) ? __builtin_clz(*bs) : 32;
-#endif
+    int nlz;
+    ak_bitset_fill_num_leading_zeros(bs, nlz);
+    return nlz;
 }
+
+#if AKMALLOC_MSVC
+#  define ak_bitset_fill_num_trailing_zeros(bs, out)            \
+     do {                                                       \
+        DWORD trz = 0;                                          \
+        out = (_BitScanForward(&trz, *(bs))) ? trz : 32;        \
+     } while (0)
+#else
+#  define ak_bitset_fill_num_leading_zeros(bs, out)             \
+     out = (*(bs)) ? __builtin_ctz(*(bs)) : 32
+#endif
 
 ak_inline static int ak_bitset_num_trailing_zeros(const ak_bitset32* bs)
 {
-#if AKMALLOC_MSVC
-    DWORD trz = 0;
-    return (_BitScanForward(&trz, *bs)) ? trz : 32;
-#else
-    return (*bs) ? __builtin_ctz(*bs) : 32;
-#endif
+    int ntz;
+    ak_bitset_fill_num_trailing_zeros(bs, ntz);
+    return ntz;
 }
 
 ak_inline static int ak_bitset_num_leading_ones(const ak_bitset32* bs)
@@ -347,83 +363,125 @@ ak_inline static ak_bitset512 ak_bitset512_get_n(const ak_bitset512* bs, int i, 
     return tmp;
 }
 
+#define ak_bitset512_fill_num_leading_zeros(bs, nlz)            \
+    nlz = 0;                                                    \
+    {                                                           \
+        int cur = 0;                                            \
+        ak_bitset_fill_num_leading_zeros(&(bs->a0), cur);       \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a1), cur);       \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a2), cur);       \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a3), cur);       \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a4), cur);       \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a5), cur);       \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a6), cur);       \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a7), cur);       \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a8), cur);       \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a9), cur);       \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a10), cur);      \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a11), cur);      \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a12), cur);      \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a13), cur);      \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a14), cur);      \
+        nlz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_leading_zeros(&(bs->a15), cur);      \
+        nlz += cur;                                             \
+        } } } } } } } } } } } } } } }                           \
+    }
+
 ak_inline static int ak_bitset512_num_leading_zeros(const ak_bitset512* bs)
 {
     int nlz = 0;
-    int cur = 0;
-
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a0)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a1)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a2)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a3)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a4)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a5)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a6)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a7)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a8)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a9)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a10)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a11)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a12)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a13)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a14)));
-    if (cur != 32) { return nlz; }
-    nlz += (cur = ak_bitset_num_leading_zeros(&(bs->a15)));
-
+    ak_bitset512_fill_num_leading_zeros(bs, nlz);
     return nlz;
 }
+
+#define ak_bitset512_fill_num_trailing_zeros(bs, ntz)           \
+    ntz = 0;                                                    \
+    {                                                           \
+        int cur = 0;                                            \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a15), cur);     \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a14), cur);     \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a13), cur);     \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a12), cur);     \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a11), cur);     \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a10), cur);     \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a9), cur);      \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a8), cur);      \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a7), cur);      \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a6), cur);      \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a5), cur);      \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a4), cur);      \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a3), cur);      \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a2), cur);      \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a1), cur);      \
+        ntz += cur;                                             \
+        if (cur == 32) {                                        \
+        ak_bitset_fill_num_trailing_zeros(&(bs->a0), cur);      \
+        ntz += cur;                                             \
+        } } } } } } } } } } } } } } }                           \
+    }
 
 ak_inline static int ak_bitset512_num_trailing_zeros(const ak_bitset512* bs)
 {
     int ntz = 0;
-    int cur = 0;
-
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a15)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a14)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a13)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a12)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a11)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a10)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a9)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a8)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a7)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a6)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a5)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a4)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a3)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a2)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a1)));
-    if (cur != 32) { return ntz; }
-    ntz += (cur = ak_bitset_num_trailing_zeros(&(bs->a0)));
-
+    ak_bitset512_fill_num_trailing_zeros(bs, ntz);
     return ntz;
 }
 
