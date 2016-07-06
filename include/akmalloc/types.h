@@ -37,4 +37,9 @@ typedef ak_u64 ak_sz;
 typedef ak_i64 ak_ssz;
 #endif
 
+#define AK_SZ_MAX ((ak_sz)-1)
+#define AK_U32_MAX ((ak_u32)-1)
+
+#define AK_NULLPTR 0
+
 #endif/*AKMALLOC_TYPES_H*/

@@ -17,7 +17,7 @@ static const ak_sz nptrs = 100000;
 CPP_TEST( slab8 )
 {
     ak_slab_root root;
-    ak_slab_init_root(&root, 8);
+    ak_slab_init_root_default(&root, 8);
 
     {// test root
         TEST_TRUE(root.partial_root.fd == &(root.partial_root));
@@ -71,7 +71,7 @@ CPP_TEST( slab8 )
 CPP_TEST( slab16 )
 {
     ak_slab_root root;
-    ak_slab_init_root(&root, 16);
+    ak_slab_init_root_default(&root, 16);
 
     {// test root
         TEST_TRUE(root.partial_root.fd == &(root.partial_root));
@@ -125,7 +125,7 @@ CPP_TEST( slab16 )
 CPP_TEST( slab28 )
 {
     ak_slab_root root;
-    ak_slab_init_root(&root, 28);
+    ak_slab_init_root_default(&root, 28);
 
     {// test root
         TEST_TRUE(root.partial_root.fd == &(root.partial_root));
@@ -179,7 +179,7 @@ CPP_TEST( slab28 )
 CPP_TEST( slab32 )
 {
     ak_slab_root root;
-    ak_slab_init_root(&root, 32);
+    ak_slab_init_root_default(&root, 32);
 
     {// test root
         TEST_TRUE(root.partial_root.fd == &(root.partial_root));
@@ -233,7 +233,7 @@ CPP_TEST( slab32 )
 CPP_TEST( slab128 )
 {
     ak_slab_root root;
-    ak_slab_init_root(&root, 128);
+    ak_slab_init_root_default(&root, 128);
 
     {// test root
         TEST_TRUE(root.partial_root.fd == &(root.partial_root));
@@ -287,7 +287,7 @@ CPP_TEST( slab128 )
 CPP_TEST( slab256 )
 {
     ak_slab_root root;
-    ak_slab_init_root(&root, 256);
+    ak_slab_init_root_default(&root, 256);
 
     {// test root
         TEST_TRUE(root.partial_root.fd == &(root.partial_root));
@@ -341,7 +341,7 @@ CPP_TEST( slab256 )
 CPP_TEST( slab512 )
 {
     ak_slab_root root;
-    ak_slab_init_root(&root, 512);
+    ak_slab_init_root_default(&root, 512);
 
     {// test root
         TEST_TRUE(root.partial_root.fd == &(root.partial_root));
@@ -395,7 +395,7 @@ CPP_TEST( slab512 )
 CPP_TEST( slab1024 )
 {
     ak_slab_root root;
-    ak_slab_init_root(&root, 1024);
+    ak_slab_init_root_default(&root, 1024);
 
     {// test root
         TEST_TRUE(root.partial_root.fd == &(root.partial_root));
@@ -437,6 +437,56 @@ CPP_TEST( slab1024 )
         ak_slab_free(parr[i]);
 #endif
     }
+
+#if TEST_DESTRUCTION
+    ak_slab_destroy(&root);
+
+    TEST_TRUE(root.nempty == 0);
+    TEST_TRUE(root.release == 0);
+#endif
+}
+
+CPP_TEST( slabReuseTest )
+{
+    static const ak_sz slabsz = 128;
+
+    ak_slab_root root;
+    ak_slab_init_root(&root, slabsz, 1, 2, 1);
+
+    static const ak_sz nmain = ((AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))/slabsz);
+
+    ASSERT_TRUE(root.empty_root.fd == &(root.empty_root));
+
+    ak_slab* pempty = AK_NULLPTR;
+    void* parr[nmain] = { 0 };
+    
+    for (ak_sz i = 0; i != nmain; ++i) {
+        parr[i] = ak_slab_alloc(&root);
+        memset(parr[i], 42, slabsz);
+    }
+
+    for (ak_sz i = 0; i != nmain - 1; ++i) {
+        ak_slab_free(parr[i]);
+    }
+
+    pempty = root.empty_root.fd;
+    ASSERT_TRUE(pempty == &(root.empty_root));
+
+    ak_slab_free(parr[nmain - 1]);
+
+    pempty = root.empty_root.fd;
+    ASSERT_TRUE(pempty != &(root.empty_root));
+
+    void* ptemp = ak_slab_alloc(&root);
+    pempty = root.empty_root.fd;
+    ASSERT_TRUE(pempty == &(root.empty_root));
+
+    root.RELEASE_RATE = 1;
+    ak_slab_free(ptemp);
+    pempty = root.empty_root.fd;
+    ASSERT_TRUE(pempty == &(root.empty_root));
+
+    ASSERT_TRUE(root.partial_root.fd == &(root.partial_root));
 
 #if TEST_DESTRUCTION
     ak_slab_destroy(&root);

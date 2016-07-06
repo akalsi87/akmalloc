@@ -36,16 +36,29 @@ struct ak_slab_root_tag
     ak_slab partial_root;
     ak_slab full_root;
     ak_slab empty_root;
+
+    ak_u32 RELEASE_RATE;
+    ak_u32 MAX_PAGES_TO_FREE;
 };
 
-static const ak_u32 RELEASE_RATE = 512;
-static const ak_u32 MAX_PAGES_TO_FREE = 50;
+#if !defined(AK_SLAB_RELEASE_RATE)
+#  define AK_SLAB_RELEASE_RATE 512
+#endif
+
+/* At worst, a 10% growth of release rate */
+#if !defined(AK_SLAB_MAX_PAGES_TO_FREE)
+#  define AK_SLAB_MAX_PAGES_TO_FREE (AK_SLAB_RELEASE_RATE * 9) / 10
+#endif
+
+/**************************************************************/
+/* P R I V A T E                                              */
+/**************************************************************/
 
 ak_inline static void ak_slab_unlink(ak_slab* s)
 {
     s->bk->fd = s->fd;
     s->fd->bk = s->bk;
-    s->fd = s->bk = 0;
+    s->fd = s->bk = AK_NULLPTR;
 }
 
 ak_inline static void ak_slab_link_fd(ak_slab* s, ak_slab* fd)
@@ -78,19 +91,6 @@ ak_inline static ak_sz ak_num_pages_for_sz(ak_sz sz)
     return (sz)/4;
 }
 
-ak_inline static void ak_slab_init_root(ak_slab_root* s, ak_sz sz)
-{
-    s->sz = (ak_u32)sz;
-    s->navail = (ak_u32)(AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))/(ak_u32)sz;
-    s->npages = (ak_u32)ak_num_pages_for_sz(sz);
-    s->nempty = 0;
-    s->release = 0;
-
-    ak_slab_init_chain_head(&(s->partial_root), s);
-    ak_slab_init_chain_head(&(s->full_root), s);
-    ak_slab_init_chain_head(&(s->empty_root), s);
-}
-
 ak_inline static ak_slab* ak_slab_init(void* mem, ak_sz sz, ak_sz navail, ak_slab_root* root)
 {
     AKMALLOC_ASSERT(mem);
@@ -102,7 +102,7 @@ ak_inline static ak_slab* ak_slab_init(void* mem, ak_sz sz, ak_sz navail, ak_sla
     AKMALLOC_ASSERT(navail > 0);
 
     ak_slab* s = (ak_slab*)mem;
-    s->fd = s->bk = 0;
+    s->fd = s->bk = AK_NULLPTR;
     s->root = root;
     ak_bitset512_clear_all(&(s->avail));
     int inavail = (int)navail;
@@ -113,7 +113,7 @@ ak_inline static ak_slab* ak_slab_init(void* mem, ak_sz sz, ak_sz navail, ak_sla
     return s;
 }
 
-ak_inline static ak_slab* ak_slab_new_pvt(char* mem, ak_sz sz, ak_sz navail, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
+ak_inline static ak_slab* ak_slab_new_init(char* mem, ak_sz sz, ak_sz navail, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
     ak_slab* slab = ak_slab_init(mem, sz, navail, root);
     ak_slab_link(slab, fd, bk);
@@ -127,22 +127,22 @@ static ak_slab* ak_slab_new_alloc(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_ro
     // try to acquire a page and fit as many slabs as possible in
     char* const mem = (char*)ak_os_alloc(NPAGES * AKMALLOC_DEFAULT_PAGE_SIZE);
     {// return if no mem
-        if (ak_unlikely(!mem)) { return 0; }
+        if (ak_unlikely(!mem)) { return AK_NULLPTR; }
     }
 
-    ak_sz navail = (AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))/sz;
+    ak_sz navail = root->navail;
 
     char* cmem = mem;
     for (int i = 0; i < NPAGES - 1; ++i) {
         ak_slab* nextpage = (ak_slab*)(cmem + AKMALLOC_DEFAULT_PAGE_SIZE);
-        ak_slab* curr = ak_slab_new_pvt(cmem, sz, navail, nextpage, bk, root);
+        ak_slab* curr = ak_slab_new_init(cmem, sz, navail, nextpage, bk, root);
         AKMALLOC_ASSERT(ak_bitset512_num_trailing_ones(&(curr->avail)) == (int)navail);
         (void)curr;
         bk = nextpage;
         cmem += AKMALLOC_DEFAULT_PAGE_SIZE;
     }
 
-    ak_slab_new_pvt(cmem, sz, navail, fd, bk, root);
+    ak_slab_new_init(cmem, sz, navail, fd, bk, root);
 
     return (ak_slab*)mem;
 }
@@ -159,15 +159,23 @@ static ak_slab* ak_slab_new_reuse(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_ro
     for (int i = 0; i < NPAGES - 1; ++i) {
         ak_slab* nextpage = curr->fd;
         ak_slab_unlink(curr);
-        curr = ak_slab_new_pvt((char*)curr, sz, navail, nextpage, bk, root);
+        curr = ak_slab_new_init((char*)curr, sz, navail, nextpage, bk, root);
         AKMALLOC_ASSERT(ak_bitset512_num_trailing_ones(&(curr->avail)) == (int)navail);
         (void)curr;
         bk = nextpage;
     }
 
-    ak_slab_new_pvt((char*)curr, sz, navail, fd, bk, root);
+    ak_slab_unlink(curr);
+    ak_slab_new_init((char*)curr, sz, navail, fd, bk, root);
 
     return start;
+}
+
+ak_inline static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
+{
+    return (root->nempty >= root->npages)
+                ? ak_slab_new_reuse(sz, fd, bk, root)
+                : ak_slab_new_alloc(sz, fd, bk, root);
 }
 
 ak_inline static char* ak_slab_2_mem(ak_slab* s)
@@ -194,11 +202,12 @@ static int ak_slab_none_free(ak_slab* s)
 static void* ak_slab_search(ak_slab* s, ak_sz sz, ak_u32 navail, ak_slab** pslab, int* pntz)
 {
     const ak_slab* const root = s;
-    void* mem = 0;
-    if (s->fd != root) {
+    void* mem = AK_NULLPTR;
+    if (ak_likely(s->fd != root)) {
         AKMALLOC_ASSERT(pslab);
         AKMALLOC_ASSERT(pntz);
         s = s->fd;
+
         // partial list entry must not be full
         AKMALLOC_ASSERT(ak_bitset512_num_trailing_zeros(&(s->avail)) != 512);
 
@@ -216,19 +225,66 @@ static void* ak_slab_search(ak_slab* s, ak_sz sz, ak_u32 navail, ak_slab** pslab
     return mem;
 }
 
+static void ak_slab_release_pages(ak_slab_root* root, ak_slab* s, ak_u32 numtofree)
+{
+    ak_u32 ct = 0;
+    ak_slab* const r = s;
+    ak_slab* next = AK_NULLPTR;
+
+    s = s->fd;
+    next = s->fd;
+    for (; (ct < numtofree) && (s != r); ++ct, next = s->fd) {
+        ak_slab_unlink(s);
+        ak_os_free(s, AKMALLOC_DEFAULT_PAGE_SIZE);
+        s = next;
+    }
+}
+
+ak_inline static void ak_slab_release_os_mem(ak_slab_root* root)
+{
+    ak_u32 numtofree = root->nempty;
+    numtofree = (numtofree > root->MAX_PAGES_TO_FREE)
+                    ? root->MAX_PAGES_TO_FREE
+                    : numtofree;
+    ak_slab_release_pages(root, &(root->empty_root), numtofree);
+    root->nempty -= numtofree;
+    root->release = 0;
+}
+
+/**************************************************************/
+/* P U B L I C                                                */
+/**************************************************************/
+
+static void ak_slab_init_root(ak_slab_root* s, ak_sz sz, ak_u32 npages, ak_u32 relrate, ak_u32 maxpagefree)
+{
+    s->sz = (ak_u32)sz;
+    s->navail = (ak_u32)(AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))/(ak_u32)sz;
+    s->npages = npages;
+    s->nempty = 0;
+    s->release = 0;
+
+    ak_slab_init_chain_head(&(s->partial_root), s);
+    ak_slab_init_chain_head(&(s->full_root), s);
+    ak_slab_init_chain_head(&(s->empty_root), s);
+
+    s->RELEASE_RATE = relrate;
+    s->MAX_PAGES_TO_FREE = maxpagefree;
+}
+
+ak_inline static void ak_slab_init_root_default(ak_slab_root* s, ak_sz sz)
+{
+    ak_slab_init_root(s, sz, ak_num_pages_for_sz(sz), (AK_SLAB_RELEASE_RATE), (AK_SLAB_MAX_PAGES_TO_FREE));
+}
+
 static void* ak_slab_alloc(ak_slab_root* root)
 {
     int ntz = 0;
-    ak_slab* slab = 0;
+    ak_slab* slab = AK_NULLPTR;
     const ak_sz sz = root->sz;
     void* mem = ak_slab_search(&(root->partial_root), sz, root->navail, &slab, &ntz);
 
     if (ak_unlikely(!mem)) {
-        if (root->nempty > root->npages) {
-            slab = ak_slab_new_reuse(sz, root->partial_root.fd, &(root->partial_root), root);
-        } else {
-            slab = ak_slab_new_alloc(sz, root->partial_root.fd, &(root->partial_root), root);
-        }
+        slab = ak_slab_new(sz, root->partial_root.fd, &(root->partial_root), root);
         if (ak_likely(slab)) {
             AKMALLOC_ASSERT(ak_bitset512_get(&(slab->avail), 0));
             ak_bitset512_clear(&(slab->avail), 0);
@@ -240,21 +296,6 @@ static void* ak_slab_alloc(ak_slab_root* root)
     }
 
     return mem;
-}
-
-static void ak_slab_release_pages(ak_slab_root* root, ak_slab* s, ak_u32 numtofree)
-{
-    ak_u32 ct = 0;
-    ak_slab* const r = s;
-    ak_slab* next = 0;
-
-    s = s->fd;
-    next = s->fd;
-    for (; (ct < numtofree) && (next != r); ++ct, next = s->fd) {
-        ak_slab_unlink(s);
-        ak_os_free(s, AKMALLOC_DEFAULT_PAGE_SIZE);
-        s = next;
-    }
 }
 
 static void ak_slab_free(void* p)
@@ -283,25 +324,18 @@ static void ak_slab_free(void* p)
     } else if (ak_slab_all_free(slab)) {
         ak_slab_unlink(slab);
         ak_slab_link(slab, root->empty_root.fd, &(root->empty_root));
-        ++(root->nempty);
-        ++(root->release);
-        if (root->release >= RELEASE_RATE) {
-            ak_u32 numtofree = root->nempty/2;
-            numtofree = numtofree > MAX_PAGES_TO_FREE ? MAX_PAGES_TO_FREE : numtofree;
-            ak_slab* emptyroot = &(root->empty_root);
-            ak_slab_release_pages(root, emptyroot, numtofree);
-            root->nempty -= numtofree;
-            root->release = 0;
+        ++(root->nempty); ++(root->release);
+        if (root->release >= root->RELEASE_RATE) {
+            ak_slab_release_os_mem(root);
         }
     }
 }
 
 static void ak_slab_destroy(ak_slab_root* root)
 {
-    static const ak_u32 ALL_PAGES = (ak_u32)(-1);
-    ak_slab_release_pages(root, &(root->empty_root), ALL_PAGES);
-    ak_slab_release_pages(root, &(root->partial_root), ALL_PAGES);
-    ak_slab_release_pages(root, &(root->full_root), ALL_PAGES);
+    ak_slab_release_pages(root, &(root->empty_root), AK_U32_MAX);
+    ak_slab_release_pages(root, &(root->partial_root), AK_U32_MAX);
+    ak_slab_release_pages(root, &(root->full_root), AK_U32_MAX);
     root->nempty = 0;
     root->release = 0;
 }
