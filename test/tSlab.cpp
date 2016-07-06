@@ -10,6 +10,7 @@
 #include <string.h>
 
 #define USE_MALLOC 0
+#define TEST_DESTRUCTION 0
 
 static const ak_sz nptrs = 100000;
 
@@ -58,6 +59,13 @@ CPP_TEST( slab8 )
         ak_slab_free(parr[i]);
 #endif
     }
+
+#if TEST_DESTRUCTION
+    ak_slab_destroy(&root);
+
+    TEST_TRUE(root.nempty == 0);
+    TEST_TRUE(root.release == 0);
+#endif
 }
 
 CPP_TEST( slab16 )
@@ -105,6 +113,13 @@ CPP_TEST( slab16 )
         ak_slab_free(parr[i]);
 #endif
     }
+
+#if TEST_DESTRUCTION
+    ak_slab_destroy(&root);
+
+    TEST_TRUE(root.nempty == 0);
+    TEST_TRUE(root.release == 0);
+#endif
 }
 
 CPP_TEST( slab28 )
@@ -152,6 +167,13 @@ CPP_TEST( slab28 )
         ak_slab_free(parr[i]);
 #endif
     }
+
+#if TEST_DESTRUCTION
+    ak_slab_destroy(&root);
+
+    TEST_TRUE(root.nempty == 0);
+    TEST_TRUE(root.release == 0);
+#endif
 }
 
 CPP_TEST( slab32 )
@@ -199,6 +221,13 @@ CPP_TEST( slab32 )
         ak_slab_free(parr[i]);
 #endif
     }
+
+#if TEST_DESTRUCTION
+    ak_slab_destroy(&root);
+
+    TEST_TRUE(root.nempty == 0);
+    TEST_TRUE(root.release == 0);
+#endif
 }
 
 CPP_TEST( slab128 )
@@ -246,6 +275,13 @@ CPP_TEST( slab128 )
         ak_slab_free(parr[i]);
 #endif
     }
+
+#if TEST_DESTRUCTION
+    ak_slab_destroy(&root);
+
+    TEST_TRUE(root.nempty == 0);
+    TEST_TRUE(root.release == 0);
+#endif
 }
 
 CPP_TEST( slab256 )
@@ -293,6 +329,13 @@ CPP_TEST( slab256 )
         ak_slab_free(parr[i]);
 #endif
     }
+
+#if TEST_DESTRUCTION
+    ak_slab_destroy(&root);
+
+    TEST_TRUE(root.nempty == 0);
+    TEST_TRUE(root.release == 0);
+#endif
 }
 
 CPP_TEST( slab512 )
@@ -340,6 +383,13 @@ CPP_TEST( slab512 )
         ak_slab_free(parr[i]);
 #endif
     }
+
+#if TEST_DESTRUCTION
+    ak_slab_destroy(&root);
+
+    TEST_TRUE(root.nempty == 0);
+    TEST_TRUE(root.release == 0);
+#endif
 }
 
 CPP_TEST( slab1024 )
@@ -387,4 +437,11 @@ CPP_TEST( slab1024 )
         ak_slab_free(parr[i]);
 #endif
     }
+
+#if TEST_DESTRUCTION
+    ak_slab_destroy(&root);
+
+    TEST_TRUE(root.nempty == 0);
+    TEST_TRUE(root.release == 0);
+#endif
 }
