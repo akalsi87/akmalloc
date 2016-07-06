@@ -9,7 +9,7 @@
 
 #include <string.h>
 
-#define USE_MALLOC 0
+#define USE_MALLOC 1
 
 #if !defined(NDEBUG)
 #  define TEST_DESTRUCTION 1
@@ -583,6 +583,74 @@ CPP_TEST( slabDynamicsMultipleAllocReuse )
     pempty = root.empty_root.fd;
     ASSERT_TRUE(pempty == &(root.empty_root));
     ASSERT_TRUE(root.partial_root.fd == &(root.partial_root));
+
+#if TEST_DESTRUCTION
+    ak_slab_destroy(&root);
+
+    TEST_TRUE(root.nempty == 0);
+    TEST_TRUE(root.release == 0);
+#endif
+}
+
+CPP_TEST( allocLongRunning )
+{
+    static const ak_sz slabsz = 128;
+
+    ak_slab_root root;
+    ak_slab_init_root_default(&root, slabsz);
+
+    static const ak_sz nmain = 1000 * ((AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))/slabsz);
+
+    void* parr[nmain] = { 0 };
+
+    for (ak_sz i = 0; i != nmain; ++i) {
+#if USE_MALLOC
+        parr[i] = malloc(128);
+#else
+        parr[i] = ak_slab_alloc(&root);
+#endif
+        memset(parr[i], 42, slabsz);
+    }
+
+    for (ak_sz i = nmain/2; i != nmain; ++i) {
+#if USE_MALLOC
+        free(parr[i]);
+#else
+        ak_slab_free(parr[i]);
+#endif
+    }
+
+    for (ak_sz i = nmain/2; i != nmain; ++i) {
+#if USE_MALLOC
+        parr[i] = malloc(128);
+#else
+        parr[i] = ak_slab_alloc(&root);
+#endif
+    }
+
+    for (ak_sz i = nmain/2; i != nmain; ++i) {
+#if USE_MALLOC
+        free(parr[i]);
+#else
+        ak_slab_free(parr[i]);
+#endif
+    }
+
+    for (ak_sz i = nmain/2; i != nmain; ++i) {
+#if USE_MALLOC
+        parr[i] = malloc(128);
+#else
+        parr[i] = ak_slab_alloc(&root);
+#endif
+    }
+
+    for (ak_sz i = 0; i != nmain; ++i) {
+#if USE_MALLOC
+        free(parr[i]);
+#else
+        ak_slab_free(parr[i]);
+#endif
+    }
 
 #if TEST_DESTRUCTION
     ak_slab_destroy(&root);
