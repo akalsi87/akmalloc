@@ -10,7 +10,12 @@
 #include <string.h>
 
 #define USE_MALLOC 0
-#define TEST_DESTRUCTION 0
+
+#if !defined(NDEBUG)
+#  define TEST_DESTRUCTION 1
+#else
+#  define TEST_DESTRUCTION 0
+#endif
 
 static const ak_sz nptrs = 100000;
 
@@ -40,9 +45,9 @@ CPP_TEST( slab8 )
         TEST_TRUE(root.partial_root.bk != &(root.partial_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
     }
-    
+
     void* parr[nptrs] = { 0 };
-    
+
     for (ak_sz i = 0; i != nptrs; ++i) {
 #if USE_MALLOC
         parr[i] = malloc(8);
@@ -94,9 +99,9 @@ CPP_TEST( slab16 )
         TEST_TRUE(root.partial_root.bk != &(root.partial_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
     }
-    
+
     void* parr[nptrs] = { 0 };
-    
+
     for (ak_sz i = 0; i != nptrs; ++i) {
 #if USE_MALLOC
         parr[i] = malloc(16);
@@ -148,9 +153,9 @@ CPP_TEST( slab28 )
         TEST_TRUE(root.partial_root.bk != &(root.partial_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
     }
-    
+
     void* parr[nptrs] = { 0 };
-    
+
     for (ak_sz i = 0; i != nptrs; ++i) {
 #if USE_MALLOC
         parr[i] = malloc(28);
@@ -202,9 +207,9 @@ CPP_TEST( slab32 )
         TEST_TRUE(root.partial_root.bk != &(root.partial_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
     }
-    
+
     void* parr[nptrs] = { 0 };
-    
+
     for (ak_sz i = 0; i != nptrs; ++i) {
 #if USE_MALLOC
         parr[i] = malloc(32);
@@ -256,9 +261,9 @@ CPP_TEST( slab128 )
         TEST_TRUE(root.partial_root.bk != &(root.partial_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
     }
-    
+
     void* parr[nptrs] = { 0 };
-    
+
     for (ak_sz i = 0; i != nptrs; ++i) {
 #if USE_MALLOC
         parr[i] = malloc(128);
@@ -310,9 +315,9 @@ CPP_TEST( slab256 )
         TEST_TRUE(root.partial_root.bk != &(root.partial_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
     }
-    
+
     void* parr[nptrs] = { 0 };
-    
+
     for (ak_sz i = 0; i != nptrs; ++i) {
 #if USE_MALLOC
         parr[i] = malloc(256);
@@ -364,9 +369,9 @@ CPP_TEST( slab512 )
         TEST_TRUE(root.partial_root.bk != &(root.partial_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
     }
-    
+
     void* parr[nptrs] = { 0 };
-    
+
     for (ak_sz i = 0; i != nptrs; ++i) {
 #if USE_MALLOC
         parr[i] = malloc(512);
@@ -418,9 +423,9 @@ CPP_TEST( slab1024 )
         TEST_TRUE(root.partial_root.bk != &(root.partial_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
     }
-    
+
     void* parr[nptrs] = { 0 };
-    
+
     for (ak_sz i = 0; i != nptrs; ++i) {
 #if USE_MALLOC
         parr[i] = malloc(1024);
@@ -459,7 +464,7 @@ CPP_TEST( slabDynamics )
 
     ak_slab* pempty = AK_NULLPTR;
     void* parr[nmain] = { 0 };
-    
+
     ASSERT_TRUE(root.partial_root.fd == &(root.partial_root));
     ASSERT_TRUE(root.full_root.fd == &(root.full_root));
 
@@ -500,6 +505,78 @@ CPP_TEST( slabDynamics )
     pempty = root.empty_root.fd;
     ASSERT_TRUE(pempty == &(root.empty_root));
     ASSERT_TRUE(root.partial_root.fd != &(root.partial_root));
+
+    root.RELEASE_RATE = 1;
+    ak_slab_free(ptemp);
+    pempty = root.empty_root.fd;
+    ASSERT_TRUE(pempty == &(root.empty_root));
+    ASSERT_TRUE(root.partial_root.fd == &(root.partial_root));
+
+#if TEST_DESTRUCTION
+    ak_slab_destroy(&root);
+
+    TEST_TRUE(root.nempty == 0);
+    TEST_TRUE(root.release == 0);
+#endif
+}
+
+CPP_TEST( slabDynamicsMultipleAllocReuse )
+{
+    static const ak_sz slabsz = 128;
+
+    ak_slab_root root;
+    ak_slab_init_root(&root, slabsz, 2, 3, 4);
+
+    static const ak_sz nmain = 2 * ((AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))/slabsz);
+
+    ASSERT_TRUE(root.empty_root.fd == &(root.empty_root));
+
+    ak_slab* pempty = AK_NULLPTR;
+    void* parr[nmain] = { 0 };
+
+    ASSERT_TRUE(root.partial_root.fd == &(root.partial_root));
+    ASSERT_TRUE(root.full_root.fd == &(root.full_root));
+
+    parr[0] = ak_slab_alloc(&root);
+
+    ASSERT_TRUE(root.partial_root.fd != &(root.partial_root));
+    ASSERT_TRUE(root.full_root.fd == &(root.full_root));
+
+    for (ak_sz i = 1; i != nmain - 1; ++i) {
+        parr[i] = ak_slab_alloc(&root);
+        if (i < (nmain/2) - 1) {
+            ASSERT_TRUE(root.full_root.fd == &(root.full_root));
+        } else {
+            ASSERT_TRUE(root.full_root.fd != &(root.full_root));
+        }
+        memset(parr[i], 42, slabsz);
+    }
+
+    parr[nmain - 1] = ak_slab_alloc(&root);
+
+    ASSERT_TRUE(root.partial_root.fd == &(root.partial_root));
+    ASSERT_TRUE(root.full_root.fd != &(root.full_root));
+
+    ak_slab_free(parr[0]);
+
+    ASSERT_TRUE(root.partial_root.fd != &(root.partial_root));
+    ASSERT_TRUE(root.full_root.fd != &(root.full_root));
+
+    for (ak_sz i = 1; i != nmain - 1; ++i) {
+        ak_slab_free(parr[i]);
+    }
+
+    pempty = root.empty_root.fd;
+    ASSERT_TRUE(pempty->fd == &(root.empty_root));
+
+    ak_slab_free(parr[nmain - 1]);
+
+    pempty = root.empty_root.fd;
+    ASSERT_TRUE(pempty != &(root.empty_root));
+    ASSERT_TRUE(root.partial_root.fd == &(root.partial_root));
+
+    void* ptemp = ak_slab_alloc(&root);
+    pempty = root.empty_root.fd;
 
     root.RELEASE_RATE = 1;
     ak_slab_free(ptemp);

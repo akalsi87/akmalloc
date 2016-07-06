@@ -149,31 +149,21 @@ static ak_slab* ak_slab_new_alloc(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_ro
 
 static ak_slab* ak_slab_new_reuse(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
-    const int NPAGES = root->npages;
+    AKMALLOC_ASSERT(root->nempty >= 1);
 
     ak_sz navail = root->navail;
-
-    ak_slab* const start = root->empty_root.fd;
-    ak_slab* curr = start;
-
-    for (int i = 0; i < NPAGES - 1; ++i) {
-        ak_slab* nextpage = curr->fd;
-        ak_slab_unlink(curr);
-        curr = ak_slab_new_init((char*)curr, sz, navail, nextpage, bk, root);
-        AKMALLOC_ASSERT(ak_bitset512_num_trailing_ones(&(curr->avail)) == (int)navail);
-        (void)curr;
-        bk = nextpage;
-    }
-
+    ak_slab* const curr = root->empty_root.fd;
     ak_slab_unlink(curr);
     ak_slab_new_init((char*)curr, sz, navail, fd, bk, root);
 
-    return start;
+    --(root->nempty);
+
+    return curr;
 }
 
 ak_inline static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
-    return (root->nempty >= root->npages)
+    return (root->nempty > 0)
                 ? ak_slab_new_reuse(sz, fd, bk, root)
                 : ak_slab_new_alloc(sz, fd, bk, root);
 }
@@ -227,13 +217,15 @@ static void* ak_slab_search(ak_slab* s, ak_sz sz, ak_u32 navail, ak_slab** pslab
 
 static void ak_slab_release_pages(ak_slab_root* root, ak_slab* s, ak_u32 numtofree)
 {
-    ak_u32 ct = 0;
     ak_slab* const r = s;
     ak_slab* next = AK_NULLPTR;
-
     s = s->fd;
-    next = s->fd;
-    for (; (ct < numtofree) && (s != r); ++ct, next = s->fd) {
+    for (ak_u32 ct = 0; ct < numtofree; ++ct) {
+        if (s == r) {
+            break;
+        } else {
+            next = s->fd;
+        }
         ak_slab_unlink(s);
         ak_os_free(s, AKMALLOC_DEFAULT_PAGE_SIZE);
         s = next;
@@ -318,7 +310,6 @@ static void ak_slab_free(void* p)
     if (movetopartial) {
         // put at the back of the partial list so the full ones
         // appear at the front
-        ak_slab_root* root = slab->root;
         ak_slab_unlink(slab);
         ak_slab_link(slab, &(root->partial_root), root->partial_root.bk);
     } else if (ak_slab_all_free(slab)) {

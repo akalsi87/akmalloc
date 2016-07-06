@@ -30,14 +30,6 @@
 #  define AKMALLOC_LARGE_BLOCK_SIZE AKMALLOC_DEFAULT_LARGE_BLOCK_SIZE
 #endif
 
-#if !defined(AKMALLOC_ASSERT)
-#  if !defined(NDEBUG)
-#    define AKMALLOC_ASSERT AKMALLOC_DEFAULT_ASSERT
-#  else
-#    define AKMALLOC_ASSERT(...) do { } while(0)
-#  endif
-#endif
-
 /***********************************************
  * IMPLEMENTATION
  ***********************************************/
@@ -53,7 +45,7 @@ static void* ak_os_alloc(size_t sz)
 {
     static const ak_sz pgsz = ak_page_size();
     static_cast<void>(pgsz);
-    AKMALLOC_ASSERT(pgsz == AKMALLOC_DEFAULT_PAGE_SIZE);
+    AKMALLOC_ASSERT_ALWAYS(pgsz == AKMALLOC_DEFAULT_PAGE_SIZE);
     return AKMALLOC_MMAP(sz);
 }
 

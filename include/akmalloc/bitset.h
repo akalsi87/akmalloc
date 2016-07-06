@@ -6,6 +6,7 @@
 #ifndef AKMALLOC_DETAIL_BITSET_H
 #define AKMALLOC_DETAIL_BITSET_H
 
+#include "akmalloc/assert.h"
 #include "akmalloc/inline.h"
 #include "akmalloc/types.h"
 
@@ -248,55 +249,56 @@ ak_inline static void ak_bitset512_set(ak_bitset512* bs, int idx)
     switch (idx >> 5) {
         case 0:
             ak_bitset_set(&(bs->a15), idx & 31);
-            break;
+            return;
         case 1:
             ak_bitset_set(&(bs->a14), idx & 31);
-            break;
+            return;
         case 2:
             ak_bitset_set(&(bs->a13), idx & 31);
-            break;
+            return;
         case 3:
             ak_bitset_set(&(bs->a12), idx & 31);
-            break;
+            return;
         case 4:
             ak_bitset_set(&(bs->a11), idx & 31);
-            break;
+            return;
         case 5:
             ak_bitset_set(&(bs->a10), idx & 31);
-            break;
+            return;
         case 6:
             ak_bitset_set(&(bs->a9), idx & 31);
-            break;
+            return;
         case 7:
             ak_bitset_set(&(bs->a8), idx & 31);
-            break;
+            return;
         case 8:
             ak_bitset_set(&(bs->a7), idx & 31);
-            break;
+            return;
         case 9:
             ak_bitset_set(&(bs->a6), idx & 31);
-            break;
+            return;
         case 10:
             ak_bitset_set(&(bs->a5), idx & 31);
-            break;
+            return;
         case 11:
             ak_bitset_set(&(bs->a4), idx & 31);
-            break;
+            return;
         case 12:
             ak_bitset_set(&(bs->a3), idx & 31);
-            break;
+            return;
         case 13:
             ak_bitset_set(&(bs->a2), idx & 31);
-            break;
+            return;
         case 14:
             ak_bitset_set(&(bs->a1), idx & 31);
-            break;
+            return;
         case 15:
             ak_bitset_set(&(bs->a0), idx & 31);
-            break;
+            return;
         default:
-            break;
+            AKMALLOC_ASSERT_ALWAYS(0 && "Invalid bitset index");
     }
+    return;
 }
 
 ak_inline static void ak_bitset512_clear(ak_bitset512* bs, int idx)
@@ -304,65 +306,56 @@ ak_inline static void ak_bitset512_clear(ak_bitset512* bs, int idx)
     switch (idx >> 5) {
         case 0:
             ak_bitset_clear(&(bs->a15), idx & 31);
-            break;
+            return;
         case 1:
             ak_bitset_clear(&(bs->a14), idx & 31);
-            break;
+            return;
         case 2:
             ak_bitset_clear(&(bs->a13), idx & 31);
-            break;
+            return;
         case 3:
             ak_bitset_clear(&(bs->a12), idx & 31);
-            break;
+            return;
         case 4:
             ak_bitset_clear(&(bs->a11), idx & 31);
-            break;
+            return;
         case 5:
             ak_bitset_clear(&(bs->a10), idx & 31);
-            break;
+            return;
         case 6:
             ak_bitset_clear(&(bs->a9), idx & 31);
-            break;
+            return;
         case 7:
             ak_bitset_clear(&(bs->a8), idx & 31);
-            break;
+            return;
         case 8:
             ak_bitset_clear(&(bs->a7), idx & 31);
-            break;
+            return;
         case 9:
             ak_bitset_clear(&(bs->a6), idx & 31);
-            break;
+            return;
         case 10:
             ak_bitset_clear(&(bs->a5), idx & 31);
-            break;
+            return;
         case 11:
             ak_bitset_clear(&(bs->a4), idx & 31);
-            break;
+            return;
         case 12:
             ak_bitset_clear(&(bs->a3), idx & 31);
-            break;
+            return;
         case 13:
             ak_bitset_clear(&(bs->a2), idx & 31);
-            break;
+            return;
         case 14:
             ak_bitset_clear(&(bs->a1), idx & 31);
-            break;
+            return;
         case 15:
             ak_bitset_clear(&(bs->a0), idx & 31);
-            break;
+            return;
         default:
-            break;
+            AKMALLOC_ASSERT_ALWAYS(0 && "Invalid bitset index");
     }
-}
-
-ak_inline static void ak_bitset512_set_n(ak_bitset512* bs, int i, int n)
-{
-    /* complicated */
-}
-
-ak_inline static void ak_bitset512_clear_n(ak_bitset512* bs, int i, int n)
-{
-    /* complicated */
+    return;
 }
 
 ak_inline static ak_bitset32 ak_bitset512_get(const ak_bitset512* bs, int idx)
@@ -401,15 +394,9 @@ ak_inline static ak_bitset32 ak_bitset512_get(const ak_bitset512* bs, int idx)
         case 15:
             return ak_bitset_get(&(bs->a0), idx & 31);
         default:
+            AKMALLOC_ASSERT_ALWAYS(0 && "Invalid bitset index");
             return 0;
     }
-}
-
-ak_inline static ak_bitset512 ak_bitset512_get_n(const ak_bitset512* bs, int i, int n)
-{
-    /* complicated */
-    ak_bitset512 tmp;
-    return tmp;
 }
 
 #define ak_bitset512_fill_num_leading_zeros(bs, nlz)            \
@@ -710,6 +697,5 @@ ak_inline static int ak_bitset512_num_trailing_ones(const ak_bitset512* bs)
     ak_bitset512_fill_num_trailing_ones(bs, nto);
     return nto;
 }
-
 
 #endif/*AKMALLOC_DETAIL_BITSET_H*/
