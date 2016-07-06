@@ -446,7 +446,7 @@ CPP_TEST( slab1024 )
 #endif
 }
 
-CPP_TEST( slabReuseTest )
+CPP_TEST( slabDynamics )
 {
     static const ak_sz slabsz = 128;
 
@@ -460,12 +460,30 @@ CPP_TEST( slabReuseTest )
     ak_slab* pempty = AK_NULLPTR;
     void* parr[nmain] = { 0 };
     
-    for (ak_sz i = 0; i != nmain; ++i) {
+    ASSERT_TRUE(root.partial_root.fd == &(root.partial_root));
+    ASSERT_TRUE(root.full_root.fd == &(root.full_root));
+
+    parr[0] = ak_slab_alloc(&root);
+
+    ASSERT_TRUE(root.partial_root.fd != &(root.partial_root));
+    ASSERT_TRUE(root.full_root.fd == &(root.full_root));
+
+    for (ak_sz i = 1; i != nmain - 1; ++i) {
         parr[i] = ak_slab_alloc(&root);
         memset(parr[i], 42, slabsz);
     }
 
-    for (ak_sz i = 0; i != nmain - 1; ++i) {
+    parr[nmain - 1] = ak_slab_alloc(&root);
+
+    ASSERT_TRUE(root.partial_root.fd == &(root.partial_root));
+    ASSERT_TRUE(root.full_root.fd != &(root.full_root));
+
+    ak_slab_free(parr[0]);
+
+    ASSERT_TRUE(root.partial_root.fd != &(root.partial_root));
+    ASSERT_TRUE(root.full_root.fd == &(root.full_root));
+
+    for (ak_sz i = 1; i != nmain - 1; ++i) {
         ak_slab_free(parr[i]);
     }
 
@@ -476,16 +494,17 @@ CPP_TEST( slabReuseTest )
 
     pempty = root.empty_root.fd;
     ASSERT_TRUE(pempty != &(root.empty_root));
+    ASSERT_TRUE(root.partial_root.fd == &(root.partial_root));
 
     void* ptemp = ak_slab_alloc(&root);
     pempty = root.empty_root.fd;
     ASSERT_TRUE(pempty == &(root.empty_root));
+    ASSERT_TRUE(root.partial_root.fd != &(root.partial_root));
 
     root.RELEASE_RATE = 1;
     ak_slab_free(ptemp);
     pempty = root.empty_root.fd;
     ASSERT_TRUE(pempty == &(root.empty_root));
-
     ASSERT_TRUE(root.partial_root.fd == &(root.partial_root));
 
 #if TEST_DESTRUCTION
