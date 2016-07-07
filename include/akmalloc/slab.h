@@ -124,7 +124,7 @@ ak_inline static ak_sz ak_num_pages_for_sz(ak_sz sz)
     (void)slabsz;                                                             \
   } while (0)
 
-static ak_slab* ak_slab_new_init(char* mem, ak_sz sz, ak_sz navail, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
+ak_inline static ak_slab* ak_slab_new_init(char* mem, ak_sz sz, ak_sz navail, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
     ak_slab_init(mem, sz, navail, root);
     ak_slab* slab = (ak_slab*)mem;
