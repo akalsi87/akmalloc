@@ -116,6 +116,11 @@ ak_inline static int ak_bitset_num_trailing_ones(const ak_bitset32* bs)
     return ak_bitset_num_trailing_zeros(&copy);
 }
 
+ak_inline static void ak_bitset_flip(ak_bitset32* bs)
+{
+    *bs = ~(*bs);
+}
+
 /* ak_bitset512 */
 
 struct ak_bitset512
@@ -660,22 +665,22 @@ ak_inline static int ak_bitset512_num_trailing_zeros(const ak_bitset512* bs)
 
 ak_inline static void ak_bitset512_flip(ak_bitset512* bs)
 {
-    bs->a0 = ~(bs->a0);
-    bs->a1 = ~(bs->a1);
-    bs->a2 = ~(bs->a2);
-    bs->a3 = ~(bs->a3);
-    bs->a4 = ~(bs->a4);
-    bs->a5 = ~(bs->a5);
-    bs->a6 = ~(bs->a6);
-    bs->a7 = ~(bs->a7);
-    bs->a8 = ~(bs->a8);
-    bs->a9 = ~(bs->a9);
-    bs->a10 = ~(bs->a10);
-    bs->a11 = ~(bs->a11);
-    bs->a12 = ~(bs->a12);
-    bs->a13 = ~(bs->a13);
-    bs->a14 = ~(bs->a14);
-    bs->a15 = ~(bs->a15);
+    ak_bitset_flip(&(bs->a0));
+    ak_bitset_flip(&(bs->a1));
+    ak_bitset_flip(&(bs->a2));
+    ak_bitset_flip(&(bs->a3));
+    ak_bitset_flip(&(bs->a4));
+    ak_bitset_flip(&(bs->a5));
+    ak_bitset_flip(&(bs->a6));
+    ak_bitset_flip(&(bs->a7));
+    ak_bitset_flip(&(bs->a8));
+    ak_bitset_flip(&(bs->a9));
+    ak_bitset_flip(&(bs->a10));
+    ak_bitset_flip(&(bs->a11));
+    ak_bitset_flip(&(bs->a12));
+    ak_bitset_flip(&(bs->a13));
+    ak_bitset_flip(&(bs->a14));
+    ak_bitset_flip(&(bs->a15));
 }
 
 ak_inline static int ak_bitset512_num_leading_ones(const ak_bitset512* bs)

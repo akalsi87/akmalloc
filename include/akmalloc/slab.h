@@ -45,9 +45,8 @@ struct ak_slab_root_tag
 #  define AK_SLAB_RELEASE_RATE 512
 #endif
 
-/* At worst, a 10% growth of release rate */
 #if !defined(AK_SLAB_MAX_PAGES_TO_FREE)
-#  define AK_SLAB_MAX_PAGES_TO_FREE (AK_SLAB_RELEASE_RATE * 9) / 10
+#  define AK_SLAB_MAX_PAGES_TO_FREE AK_SLAB_RELEASE_RATE
 #endif
 
 /**************************************************************/
@@ -55,29 +54,37 @@ struct ak_slab_root_tag
 /**************************************************************/
 
 #define ak_slab_unlink(slab)               \
-{                                          \
-    (slab)->bk->fd = ((slab)->fd);         \
-    (slab)->fd->bk = ((slab)->bk);         \
-    (slab)->fd = (slab)->bk = AK_NULLPTR;  \
-}
+  do {                                     \
+    ak_slab* const sU = (slab);            \
+    sU->bk->fd = (sU->fd);                 \
+    sU->fd->bk = (sU->bk);                 \
+    sU->fd = sU->bk = AK_NULLPTR;          \
+  } while (0)
 
 #define ak_slab_link_fd(slab, fwd)         \
-{                                          \
-    (slab)->fd = (fwd);                    \
-    (fwd)->bk = (slab);                    \
-}
+  do {                                     \
+    ak_slab* const sLF = (slab);           \
+    ak_slab* const fLF = (fwd);            \
+    sLF->fd = fLF;                         \
+    fLF->bk = sLF;                         \
+  } while (0)
 
 #define ak_slab_link_bk(slab, back)        \
-{                                          \
-    (slab)->bk = (back);                   \
-    (back)->fd = (slab);                   \
-}
+  do {                                     \
+    ak_slab* const sLB = (slab);           \
+    ak_slab* const bLB = (back);           \
+    sLB->bk = bLB;                         \
+    bLB->fd = sLB;                         \
+  } while (0)
 
-ak_inline static void ak_slab_link(ak_slab* s, ak_slab* fd, ak_slab* bk)
-{
-    ak_slab_link_bk(s, bk);
-    ak_slab_link_fd(s, fd);
-}
+#define ak_slab_link(slab, fwd, back)      \
+  do {                                     \
+    ak_slab* const sL = (slab);            \
+    ak_slab* const fL = (fwd);             \
+    ak_slab* const bL = (back);            \
+    ak_slab_link_bk(sL, bL);               \
+    ak_slab_link_fd(sL, fL);               \
+  } while (0)
 
 ak_inline static void ak_slab_init_chain_head(ak_slab* s, ak_slab_root* rootp)
 {
@@ -91,31 +98,36 @@ ak_inline static ak_sz ak_num_pages_for_sz(ak_sz sz)
     return (sz)/4;
 }
 
-ak_inline static ak_slab* ak_slab_init(void* mem, ak_sz sz, ak_sz navail, ak_slab_root* root)
+#define ak_slab_init(m, s, av, r)                                             \
+  do {                                                                        \
+    void* slabmem = (m);                                                      \
+    ak_sz slabsz = (s);                                                       \
+    ak_sz slabnavail = (av);                                                  \
+    ak_slab_root* slabroot = (r);                                             \
+                                                                              \
+    AKMALLOC_ASSERT(slabmem);                                                 \
+    AKMALLOC_ASSERT(slabsz < (AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))); \
+    AKMALLOC_ASSERT(slabsz > 0);                                              \
+    AKMALLOC_ASSERT(slabsz % 2 == 0);                                         \
+                                                                              \
+    AKMALLOC_ASSERT(slabnavail < 512);                                        \
+    AKMALLOC_ASSERT(slabnavail > 0);                                          \
+                                                                              \
+    ak_slab* s = (ak_slab*)slabmem;                                           \
+    s->fd = s->bk = AK_NULLPTR;                                               \
+    s->root = slabroot;                                                       \
+    ak_bitset512_clear_all(&(s->avail));                                      \
+    int inavail = (int)slabnavail;                                            \
+    for (int i = 0; i < inavail; ++i) {                                       \
+        ak_bitset512_set(&(s->avail), i);                                     \
+    }                                                                         \
+    (void)slabsz;                                                             \
+  } while (0)
+
+static ak_slab* ak_slab_new_init(char* mem, ak_sz sz, ak_sz navail, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
-    AKMALLOC_ASSERT(mem);
-    AKMALLOC_ASSERT(sz < (AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab)));
-    AKMALLOC_ASSERT(sz > 0);
-    AKMALLOC_ASSERT(sz % 2 == 0);
-
-    AKMALLOC_ASSERT(navail < 512);
-    AKMALLOC_ASSERT(navail > 0);
-
-    ak_slab* s = (ak_slab*)mem;
-    s->fd = s->bk = AK_NULLPTR;
-    s->root = root;
-    ak_bitset512_clear_all(&(s->avail));
-    int inavail = (int)navail;
-    for (int i = 0; i < inavail; ++i) {
-        ak_bitset512_set(&(s->avail), i);
-    }
-
-    return s;
-}
-
-ak_inline static ak_slab* ak_slab_new_init(char* mem, ak_sz sz, ak_sz navail, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
-{
-    ak_slab* slab = ak_slab_init(mem, sz, navail, root);
+    ak_slab_init(mem, sz, navail, root);
+    ak_slab* slab = (ak_slab*)mem;
     ak_slab_link(slab, fd, bk);
     return slab;
 }
@@ -168,10 +180,7 @@ ak_inline static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_sla
                 : ak_slab_new_alloc(sz, fd, bk, root);
 }
 
-ak_inline static char* ak_slab_2_mem(ak_slab* s)
-{
-    return (char*)(void*)(s + 1);
-}
+#define ak_slab_2_mem(s) (char*)(void*)((s) + 1)
 
 static int ak_slab_all_free(ak_slab* s)
 {
