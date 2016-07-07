@@ -54,23 +54,23 @@ struct ak_slab_root_tag
 /* P R I V A T E                                              */
 /**************************************************************/
 
-ak_inline static void ak_slab_unlink(ak_slab* s)
-{
-    s->bk->fd = s->fd;
-    s->fd->bk = s->bk;
-    s->fd = s->bk = AK_NULLPTR;
+#define ak_slab_unlink(slab)               \
+{                                          \
+    (slab)->bk->fd = ((slab)->fd);         \
+    (slab)->fd->bk = ((slab)->bk);         \
+    (slab)->fd = (slab)->bk = AK_NULLPTR;  \
 }
 
-ak_inline static void ak_slab_link_fd(ak_slab* s, ak_slab* fd)
-{
-    s->fd = fd;
-    fd->bk = s;
+#define ak_slab_link_fd(slab, fwd)         \
+{                                          \
+    (slab)->fd = (fwd);                    \
+    (fwd)->bk = (slab);                    \
 }
 
-ak_inline static void ak_slab_link_bk(ak_slab* s, ak_slab* bk)
-{
-    s->bk = bk;
-    bk->fd = s;
+#define ak_slab_link_bk(slab, back)        \
+{                                          \
+    (slab)->bk = (back);                   \
+    (back)->fd = (slab);                   \
 }
 
 ak_inline static void ak_slab_link(ak_slab* s, ak_slab* fd, ak_slab* bk)
@@ -282,7 +282,7 @@ static void* ak_slab_alloc(ak_slab_root* root)
             ak_bitset512_clear(&(slab->avail), 0);
             return ak_slab_2_mem(slab);
         }
-    } else if (ntz == 512) {
+    } else if (ak_unlikely(ntz == 512)) {
         ak_slab_unlink(slab);
         ak_slab_link(slab, root->full_root.fd, &(root->full_root));
     }
@@ -307,12 +307,12 @@ static void ak_slab_free(void* p)
     AKMALLOC_ASSERT(!ak_bitset512_get(&(slab->avail), idx));
     ak_bitset512_set(&(slab->avail), idx);
 
-    if (movetopartial) {
+    if (ak_unlikely(movetopartial)) {
         // put at the back of the partial list so the full ones
         // appear at the front
         ak_slab_unlink(slab);
         ak_slab_link(slab, &(root->partial_root), root->partial_root.bk);
-    } else if (ak_slab_all_free(slab)) {
+    } else if (ak_unlikely(ak_slab_all_free(slab))) {
         ak_slab_unlink(slab);
         ak_slab_link(slab, root->empty_root.fd, &(root->empty_root));
         ++(root->nempty); ++(root->release);

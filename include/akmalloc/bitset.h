@@ -41,15 +41,11 @@ ak_inline static void ak_bitset_clear_all(ak_bitset32* bs)
     *bs = 0x00000000; 
 }
 
-ak_inline static void ak_bitset_set(ak_bitset32* bs, int i)
-{
-    *bs = *bs | (0x00000001 << i);
-}
+#define ak_bitset_set(bs, i) \
+  (*(bs) = (*(bs) | (0x00000001 << (i))))
 
-ak_inline static void ak_bitset_clear(ak_bitset32* bs, int i)
-{
-    *bs = *bs & (~(0x00000001 << i));
-}
+#define ak_bitset_clear(bs, i) \
+  (*(bs) = (*(bs) & (~(0x00000001 << (i)))))
 
 ak_inline static void ak_bitset_set_n(ak_bitset32* bs, int i, int n)
 {
@@ -63,10 +59,8 @@ ak_inline static void ak_bitset_clear_n(ak_bitset32* bs, int i, int n)
     *bs = *bs & (~(mask << i));
 }
 
-ak_inline static ak_bitset32 ak_bitset_get(const ak_bitset32* bs, int i)
-{
-    return (*bs & (0x00000001 << i));
-}
+#define ak_bitset_get(bs, i) \
+  ((*(bs) & (0x00000001 << (i))))
 
 ak_inline static ak_bitset32 ak_bitset_get_n(const ak_bitset32* bs, int i, int n)
 {

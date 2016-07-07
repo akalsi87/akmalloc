@@ -9,7 +9,7 @@
 
 #include <string.h>
 
-#define USE_MALLOC 1
+#define USE_MALLOC 0
 
 #if !defined(NDEBUG)
 #  define TEST_DESTRUCTION 1
