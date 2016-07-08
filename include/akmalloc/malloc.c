@@ -47,9 +47,23 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/malloc.h"
 #endif
 
-/***********************************************
- * Exported APIs
- ***********************************************/
+static void* ak_memset(void* m, int v, ak_sz sz)
+{
+    char* mem = (char*)m;
+    for (ak_sz i = 0; i != sz; ++i) {
+        mem[i] = v;
+    }
+    return m;
+}
+
+static void ak_memcpy(void* d, const void* s, ak_sz sz)
+{
+    char* mem = (char*)d;
+    const char* srcmem = (const char*)s;
+    for (ak_sz i = 0; i != sz; ++i) {
+        mem[i] = srcmem[i];
+    }
+}
 
 // Coalescing allocs give 16-byte aligned memory where the preamble
 // uses three bits. The fourth bit is always free. We use that bit
@@ -94,6 +108,7 @@ typedef struct ak_malloc_state_tag ak_malloc_state;
 
 struct ak_malloc_state_tag
 {
+    ak_sz init;
     ak_slab_root slabs[NSLABS];
     ak_ca_root   ca;
     ak_ca_segment map_root;
@@ -101,69 +116,47 @@ struct ak_malloc_state_tag
 
 static void ak_malloc_init_state(ak_malloc_state* s)
 {
+    AKMALLOC_ASSERT_ALWAYS(sizeof(ak_slab) % AK_COALESCE_ALIGN == 0);
     for (ak_sz i = 0; i != NSLABS; ++i) {
         ak_slab_init_root_default(ak_as_ptr(s->slabs[i]), SLAB_SIZES[i]);
     }
     ak_ca_init_root_default(ak_as_ptr(s->ca));
     ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
+    s->init = 1;
 }
 
 static int MALLOC_INIT = 0;
 static ak_malloc_state MALLOC_ROOT;
 
-static void* ak_memset(void* m, int v, ak_sz sz)
-{
-    char* mem = (char*)m;
-    for (ak_sz i = 0; i != sz; ++i) {
-        mem[i] = v;
-    }
-    return m;
-}
-
-static void ak_memcpy(void* d, const void* s, ak_sz sz)
-{
-    char* mem = (char*)d;
-    const char* srcmem = (const char*)s;
-    for (ak_sz i = 0; i != sz; ++i) {
-        mem[i] = srcmem[i];
-    }
-}
-
-static void ak_try_reclaim_memory()
+static void ak_try_reclaim_memory(ak_malloc_state* m)
 {
     // for each slab, reclaim empty pages
     for (ak_sz i = 0; i < NSLABS; ++i) {
-        ak_slab_root* s = ak_as_ptr(MALLOC_ROOT.slabs[i]);
+        ak_slab_root* s = ak_as_ptr(m->slabs[i]);
         ak_slab_release_pages(s, ak_as_ptr(s->empty_root), AK_U32_MAX);
         s->nempty = 0;
         s->release = 0;
     }
     // return unused segments in ca
-    ak_ca_return_os_mem(ak_as_ptr(MALLOC_ROOT.ca.empty_root), AK_U32_MAX);
-    MALLOC_ROOT.ca.nempty = 0;
-    MALLOC_ROOT.ca.release = 0;
+    ak_ca_return_os_mem(ak_as_ptr(m->ca.empty_root), AK_U32_MAX);
+    m->ca.nempty = 0;
+    m->ca.release = 0;
 }
 
-AK_EXTERN_C_BEGIN
-
-void* ak_malloc(size_t sz)
+static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
 {
-    if (ak_unlikely(!MALLOC_INIT)) {
-        ak_malloc_init_state(&MALLOC_ROOT);
-        MALLOC_INIT = 1;
-    }
     ak_sz modsz = ak_ca_aligned_size(sz + sizeof(ak_sz));
     if (modsz <= MAX_SMALL_REQUEST) {
         AKMALLOC_ASSERT(modsz % AK_COALESCE_ALIGN == 0);
         ak_sz idx = (modsz >> 4) - 1;
-        ak_sz* mem = (ak_sz*)ak_slab_alloc(ak_as_ptr(MALLOC_ROOT.slabs[idx]));
+        ak_sz* mem = (ak_sz*)ak_slab_alloc(ak_as_ptr(m->slabs[idx]));
         if (ak_likely(mem)) {
             ak_alloc_mark_slab(mem + 1); // we overallocate
             AKMALLOC_ASSERT(ak_alloc_type_slab(ak_alloc_type_bits(mem + 1)));
             return mem + 1;
         }
     } else if (sz < MMAP_SIZE) {
-        ak_sz* mem = (ak_sz*)ak_ca_alloc(ak_as_ptr(MALLOC_ROOT.ca), sz);
+        ak_sz* mem = (ak_sz*)ak_ca_alloc(ak_as_ptr(m->ca), sz);
         if (ak_likely(mem)) {
             ak_alloc_mark_coalesce(mem);
             AKMALLOC_ASSERT(ak_alloc_type_coalesce(ak_alloc_type_bits(mem)));
@@ -177,55 +170,27 @@ void* ak_malloc(size_t sz)
             ak_alloc_mark_mmap(mem + 1);
             AKMALLOC_ASSERT(ak_alloc_type_mmap(ak_alloc_type_bits(mem + 1)));
             mem->sz = actsz;
-            ak_ca_segment_link(mem, MALLOC_ROOT.map_root.fd, ak_as_ptr(MALLOC_ROOT.map_root));
+            ak_ca_segment_link(mem, m->map_root.fd, ak_as_ptr(m->map_root));
             return (mem + 1);
         }
     }
-
-    // try reclaiming memory and repeat
-    ak_try_reclaim_memory();
-
-    if (modsz <= MAX_SMALL_REQUEST) {
-        AKMALLOC_ASSERT(modsz % AK_COALESCE_ALIGN == 0);
-        ak_sz idx = (modsz >> 4) - 1;
-        ak_sz* mem = (ak_sz*)ak_slab_alloc(ak_as_ptr(MALLOC_ROOT.slabs[idx]));
-        if (ak_likely(mem)) {
-            ak_alloc_mark_slab(mem + 1); // we overallocate
-            AKMALLOC_ASSERT(ak_alloc_type_slab(ak_alloc_type_bits(mem + 1)));
-            return mem + 1;
-        }
-    } else if (sz < MMAP_SIZE) {
-        ak_sz* mem = (ak_sz*)ak_ca_alloc(ak_as_ptr(MALLOC_ROOT.ca), sz);
-        if (ak_likely(mem)) {
-            ak_alloc_mark_coalesce(mem);
-            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ak_alloc_type_bits(mem)));
-            return mem;
-        }
-    } else {
-        const ak_sz actsz = ak_ca_aligned_segment_size(sz);
-        ak_ca_segment* mem = (ak_ca_segment*)ak_os_alloc(actsz);
-        if (ak_likely(mem)) {
-            ak_alloc_mark_mmap(mem + 1);
-            AKMALLOC_ASSERT(ak_alloc_type_mmap(ak_alloc_type_bits(mem + 1)));
-            mem->sz = actsz;
-            ak_ca_segment_link(mem, MALLOC_ROOT.map_root.fd, ak_as_ptr(MALLOC_ROOT.map_root));
-            return (mem + 1);
-        }
-    }
-
     return AK_NULLPTR;
 }
 
-void* ak_calloc(size_t elsz, size_t numel)
+static void* ak_malloc_from_state(ak_malloc_state* m, size_t sz)
 {
-    ak_sz sz = elsz*numel;
-    void* mem = ak_malloc(sz);
-    return ak_memset(mem, 0, sz);
+    AKMALLOC_ASSERT(m->init);
+    void* mem = ak_try_alloc(m, sz);
+    if (ak_unlikely(!mem)) {
+        ak_try_reclaim_memory(m);
+        mem = ak_try_alloc(m, sz);
+    }
+    return mem;
 }
 
-void ak_free(void* mem)
+static void ak_free_to_state(ak_malloc_state* m, void* mem)
 {
-    if (mem) {
+    if (ak_likely(mem)) {
         ak_sz ty = ak_alloc_type_bits(mem);
         if (ak_alloc_type_slab(ty)) {
             ak_slab_free(((ak_sz*)mem) - 1);
@@ -235,24 +200,151 @@ void ak_free(void* mem)
             ak_os_free(seg, seg->sz);
         } else {
             AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
-            ak_ca_free(ak_as_ptr(MALLOC_ROOT.ca), mem);
+            ak_ca_free(ak_as_ptr(m->ca), mem);
         }
     }
 }
 
-void* ak_aligned_alloc(size_t sz, size_t aln)
+static void* ak_realloc_in_place_from_state(ak_malloc_state* m, void* mem, size_t newsz)
 {
+    const ak_sz usablesize = ak_malloc_usable_size(mem);
+    if (usablesize >= newsz) {
+        return mem;
+    }
+    return AK_NULLPTR;
+}
+
+static void* ak_realloc_from_state(ak_malloc_state* m, void* mem, size_t newsz)
+{
+    if (ak_realloc_in_place_from_state(m, mem, newsz)) {
+        return mem;
+    }
+
+    void* newmem = ak_malloc_from_state(m, newsz);
+    if (!newmem) {
+        return AK_NULLPTR;
+    }
+    if (ak_likely(mem)) {
+        ak_memcpy(newmem, mem, ak_malloc_usable_size(mem));
+        ak_free_to_state(m, mem);
+    }
+    return newmem;
+}
+
+static void* ak_aligned_alloc_from_state_no_checks(ak_malloc_state* m, size_t aln, size_t sz)
+{
+    ak_sz req = ak_ca_aligned_size(sz);
+    req += aln + (2 * sizeof(ak_alloc_node)) + (2 * sizeof(ak_free_list_node));
+    // must request from coalesce alloc so we can return the extra piece
+    char* mem = (char*)ak_ca_alloc(ak_as_ptr(m->ca), req);
+    ak_alloc_node* node = ((ak_alloc_node*)mem) - 1;
+    if (ak_likely(mem)) {
+        if ((((ak_sz)mem) & (aln - 1)) != 0) {
+            // misaligned
+            char* alnpos = (char*)(((ak_sz)(mem + aln - 1)) & ~(aln - 1));
+            ak_alloc_node* alnnode = ((ak_alloc_node*)alnpos) - 1;
+            AKMALLOC_ASSERT(alnpos - mem >= (sizeof(ak_free_list_node) + sizeof(ak_alloc_node)));
+            ak_sz actsz = ak_ca_to_sz(node->currinfo);
+            ak_sz islast = ak_ca_is_last(node);
+
+            ak_ca_set_sz(ak_as_ptr(node->currinfo), alnpos - mem - sizeof(ak_alloc_node));
+            ak_ca_set_is_last(ak_as_ptr(node->currinfo), 0);
+            ak_ca_set_is_free(ak_as_ptr(node->currinfo), 1);
+
+            ak_ca_set_sz(ak_as_ptr(alnnode->currinfo), actsz - ak_ca_to_sz(node->currinfo));
+            ak_ca_set_is_last(ak_as_ptr(alnnode->currinfo), islast);
+            ak_ca_set_is_free(ak_as_ptr(alnnode->currinfo), 0);
+
+            ak_ca_update_footer(node);
+            ak_ca_update_footer(alnnode);
+            mem = alnpos;
+        }
+        return mem;
+    }
+    return AK_NULLPTR;
+}
+
+static void* ak_aligned_alloc_from_state(ak_malloc_state* m, size_t aln, size_t sz)
+{
+    if (aln <= AK_COALESCE_ALIGN) {
+        return ak_malloc_from_state(m, sz);
+    }
+    if ((aln & AK_SZ_ONE) || (aln & (aln - 1))) {
+        size_t a = AK_COALESCE_ALIGN << 1;
+        while (a < aln)  {
+            a  = (a << 1);
+        }
+        aln = a;
+    }
+    return ak_aligned_alloc_from_state_no_checks(m, aln, sz);
+}
+
+#define AK_EINVAL 22
+#define AK_ENOMEM 12
+
+static int ak_posix_memalign_from_state(ak_malloc_state* m, void** pmem, size_t aln, size_t sz)
+{
+    void* mem = AK_NULLPTR;
+    if (aln == AK_COALESCE_ALIGN) {
+        mem = ak_malloc_from_state(m, sz);
+    } else {
+        ak_sz div = (aln / sizeof(ak_sz));
+        ak_sz rem = (aln & (sizeof(ak_sz)));
+        if (rem != 0 || div == 0 || (div & (div - AK_SZ_ONE)) != 0) {
+            return AK_EINVAL;
+        }
+        aln = (aln <= AK_COALESCE_ALIGN) ? AK_COALESCE_ALIGN : aln;
+        mem = ak_aligned_alloc_from_state_no_checks(m, aln, sz);
+    }
+
+    if (!mem) {
+        return AK_ENOMEM;
+    }
+
+    *pmem = mem;
     return 0;
 }
 
-int ak_posix_memalign(void** pmem, size_t sz, size_t aln)
+/***********************************************
+ * Exported APIs
+ ***********************************************/
+
+AK_EXTERN_C_BEGIN
+
+void* ak_malloc(size_t sz)
 {
-    return 0;
+    if (ak_unlikely(!MALLOC_INIT)) {
+        ak_malloc_init_state(&MALLOC_ROOT);
+        MALLOC_INIT = 1;
+    }
+    return ak_malloc_from_state(ak_as_ptr(MALLOC_ROOT), sz);
+}
+
+void* ak_calloc(size_t elsz, size_t numel)
+{
+    const ak_sz sz = elsz*numel;
+    void* mem = ak_malloc(sz);
+    return ak_memset(mem, 0, sz);
+}
+
+void ak_free(void* mem)
+{
+    ak_free_to_state(ak_as_ptr(MALLOC_ROOT), mem);
+}
+
+void* ak_aligned_alloc(size_t sz, size_t aln)
+{
+    return ak_aligned_alloc_from_state(ak_as_ptr(MALLOC_ROOT), sz, aln);
+}
+
+int ak_posix_memalign(void** pmem, size_t aln, size_t sz)
+{
+    return ak_posix_memalign_from_state(ak_as_ptr(MALLOC_ROOT), pmem, aln, sz);
 }
 
 void* ak_memalign(size_t sz, size_t aln)
 {
-    return 0;
+    return ak_aligned_alloc_from_state(ak_as_ptr(MALLOC_ROOT), sz, aln);
 }
 
 size_t ak_malloc_usable_size(const void* mem)
@@ -277,15 +369,7 @@ size_t ak_malloc_usable_size(const void* mem)
 
 void* ak_realloc(void* mem, size_t newsz)
 {
-    void* newmem = ak_malloc(newsz);
-    if (!newmem) {
-        return 0;
-    }
-    if (ak_likely(mem)) {
-        ak_memcpy(newmem, mem, ak_malloc_usable_size(mem));
-        ak_free(mem);
-    }
-    return newmem;
+    return ak_realloc_from_state(ak_as_ptr(MALLOC_ROOT), mem, newsz);
 }
 
 AK_EXTERN_C_END

@@ -50,6 +50,7 @@ struct ak_slab_tag
     ak_slab*      bk;
     ak_slab_root* root;
     ak_bitset512  avail;
+    void*         _unused;
 };
 
 struct ak_slab_root_tag

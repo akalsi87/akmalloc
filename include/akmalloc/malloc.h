@@ -59,11 +59,12 @@ AK_EXTERN_C_BEGIN
 AKMALLOC_EXPORT void*  ak_malloc(size_t);
 AKMALLOC_EXPORT void*  ak_calloc(size_t, size_t);
 AKMALLOC_EXPORT void   ak_free(void*);
-AKMALLOC_EXPORT void*  ak_aligned_alloc(size_t, size_t);
-AKMALLOC_EXPORT int    ak_posix_memalign(void**, size_t, size_t);
 AKMALLOC_EXPORT void*  ak_memalign(size_t, size_t);
 AKMALLOC_EXPORT void*  ak_realloc(void*, size_t);
 AKMALLOC_EXPORT size_t ak_malloc_usable_size(const void*);
+
+AKMALLOC_EXPORT void*  ak_aligned_alloc(size_t, size_t);
+AKMALLOC_EXPORT int    ak_posix_memalign(void**, size_t, size_t);
 
 AK_EXTERN_C_END
 
