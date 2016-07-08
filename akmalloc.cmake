@@ -24,6 +24,7 @@ set(akmalloc_impl
 set(akmalloc_exp_hdr
     ${xprt}/assert.h;
     ${xprt}/atomic.h;
+    ${xprt}/coalescingalloc.h;
     ${xprt}/config.h;
     ${xprt}/constants.h;
     ${xprt}/bitset.h;
