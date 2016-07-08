@@ -41,16 +41,12 @@ add_test_exe    (tCoalescingAlloc tCoalescingAlloc.cpp)
 test_link_libs  (tCoalescingAlloc )
 test_create     (tCoalescingAlloc)
 
-
-if (NOT AKMALLOC_LIBRARY)
-
 if (NOT WIN32) # UNIX test
 add_test_exe    (malloctest malloctest.c)
-test_link_libs  (malloctest )
+test_link_libs  (malloctest ${to_link})
 test_create     (malloctest)
 endif()
 
 add_test_exe    (tMallocPerf tMallocPerf.cpp)
-test_link_libs  (tMallocPerf )
+test_link_libs  (tMallocPerf ${to_link})
 test_create     (tMallocPerf)
-endif()

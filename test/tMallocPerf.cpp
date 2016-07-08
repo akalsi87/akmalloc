@@ -6,6 +6,7 @@
 #include "unittest.hpp"
 
 #include "akmalloc/malloc.h"
+#include "akmalloc/constants.h"
 
 #include <stdlib.h>
 #include <string.h>

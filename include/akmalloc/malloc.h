@@ -33,6 +33,9 @@ For more information, please refer to <http://unlicense.org/>
 #ifndef AKMALLOC_MALLOC_H
 #define AKMALLOC_MALLOC_H
 
+/* We only include this to get size_t */
+#include <stddef.h>
+
 #include "akmalloc/types.h"
 
 #if !defined(AKMALLOC_USE_PREFIX) || !AKMALLOC_USE_PREFIX
@@ -57,14 +60,14 @@ For more information, please refer to <http://unlicense.org/>
 #  endif
 #endif
 
-AKMALLOC_EXPORT void*  ak_malloc(ak_sz);
-AKMALLOC_EXPORT void*  ak_calloc(ak_sz, ak_sz);
+AKMALLOC_EXPORT void*  ak_malloc(size_t);
+AKMALLOC_EXPORT void*  ak_calloc(size_t, size_t);
 AKMALLOC_EXPORT void   ak_free(void*);
-AKMALLOC_EXPORT void*  ak_aligned_alloc(ak_sz, ak_sz);
-AKMALLOC_EXPORT int    ak_posix_memalign(void**, ak_sz, ak_sz);
-AKMALLOC_EXPORT void*  ak_memalign(ak_sz, ak_sz);
-AKMALLOC_EXPORT void*  ak_realloc(void*, ak_sz);
-AKMALLOC_EXPORT ak_sz ak_malloc_usable_size(const void*);
+AKMALLOC_EXPORT void*  ak_aligned_alloc(size_t, size_t);
+AKMALLOC_EXPORT int    ak_posix_memalign(void**, size_t, size_t);
+AKMALLOC_EXPORT void*  ak_memalign(size_t, size_t);
+AKMALLOC_EXPORT void*  ak_realloc(void*, size_t);
+AKMALLOC_EXPORT size_t ak_malloc_usable_size(const void*);
 
 #if !defined(AKMALLOC_BUILD)
 #  include "akmalloc/malloc.c"

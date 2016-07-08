@@ -33,6 +33,10 @@ For more information, please refer to <http://unlicense.org/>
 #ifndef AKMALLOC_MALLOC_C
 #define AKMALLOC_MALLOC_C
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include "akmalloc/slab.h"
 #include "akmalloc/coalescingalloc.h"
 #include "akmalloc/setup.h"
@@ -138,7 +142,7 @@ static void ak_try_reclaim_memory()
     MALLOC_ROOT.ca.release = 0;
 }
 
-void* ak_malloc(ak_sz sz)
+void* ak_malloc(size_t sz)
 {
     if (ak_unlikely(!MALLOC_INIT)) {
         ak_malloc_init_state(&MALLOC_ROOT);
@@ -208,7 +212,7 @@ void* ak_malloc(ak_sz sz)
     return AK_NULLPTR;
 }
 
-void* ak_calloc(ak_sz elsz, ak_sz numel)
+void* ak_calloc(size_t elsz, size_t numel)
 {
     ak_sz sz = elsz*numel;
     void* mem = ak_malloc(sz);
@@ -232,22 +236,22 @@ void ak_free(void* mem)
     }
 }
 
-void* ak_aligned_alloc(ak_sz sz, ak_sz aln)
+void* ak_aligned_alloc(size_t sz, size_t aln)
 {
     return 0;
 }
 
-int ak_posix_memalign(void** pmem, ak_sz sz, ak_sz aln)
+int ak_posix_memalign(void** pmem, size_t sz, size_t aln)
 {
     return 0;
 }
 
-void* ak_memalign(ak_sz sz, ak_sz aln)
+void* ak_memalign(size_t sz, size_t aln)
 {
     return 0;
 }
 
-ak_sz ak_malloc_usable_size(const void* mem)
+size_t ak_malloc_usable_size(const void* mem)
 {
     if (mem) {
         ak_sz ty = ak_alloc_type_bits(mem);
@@ -267,7 +271,7 @@ ak_sz ak_malloc_usable_size(const void* mem)
     }
 }
 
-void* ak_realloc(void* mem, ak_sz newsz)
+void* ak_realloc(void* mem, size_t newsz)
 {
     void* newmem = ak_malloc(newsz);
     if (!newmem) {
