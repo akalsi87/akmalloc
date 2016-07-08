@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define USE_MALLOC 1
+#define USE_MALLOC 0
 
 void shuffle(ak_sz* array, ak_sz n)
 {

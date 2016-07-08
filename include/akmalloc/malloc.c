@@ -33,9 +33,9 @@ For more information, please refer to <http://unlicense.org/>
 #ifndef AKMALLOC_MALLOC_C
 #define AKMALLOC_MALLOC_C
 
-#include "akmalloc/setup.h"
 #include "akmalloc/slab.h"
 #include "akmalloc/coalescingalloc.h"
+#include "akmalloc/setup.h"
 
 #if defined(AKMALLOC_BUILD)
 #include "akmalloc/malloc.h"
@@ -72,7 +72,7 @@ For more information, please refer to <http://unlicense.org/>
 #define ak_alloc_mark_mmap(p) \
   *(((ak_sz*)(p)) - 1) = ((ak_sz)9)
 
-static const ak_sz NSLABS = 16;
+#define NSLABS 16
 
 static const ak_sz SLAB_SIZES[NSLABS] = {
     16,   32,   48,   64,   80,   96,  112,  128,
@@ -138,7 +138,7 @@ static void ak_try_reclaim_memory()
     MALLOC_ROOT.ca.release = 0;
 }
 
-void* ak_malloc(size_t sz)
+void* ak_malloc(ak_sz sz)
 {
     if (ak_unlikely(!MALLOC_INIT)) {
         ak_malloc_init_state(&MALLOC_ROOT);
@@ -208,7 +208,7 @@ void* ak_malloc(size_t sz)
     return AK_NULLPTR;
 }
 
-void* ak_calloc(size_t elsz, size_t numel)
+void* ak_calloc(ak_sz elsz, ak_sz numel)
 {
     ak_sz sz = elsz*numel;
     void* mem = ak_malloc(sz);
@@ -232,22 +232,22 @@ void ak_free(void* mem)
     }
 }
 
-void* ak_aligned_alloc(size_t sz, size_t aln)
+void* ak_aligned_alloc(ak_sz sz, ak_sz aln)
 {
     return 0;
 }
 
-int ak_posix_memalign(void** pmem, size_t sz, size_t aln)
+int ak_posix_memalign(void** pmem, ak_sz sz, ak_sz aln)
 {
     return 0;
 }
 
-void* ak_memalign(size_t sz, size_t aln)
+void* ak_memalign(ak_sz sz, ak_sz aln)
 {
     return 0;
 }
 
-size_t ak_malloc_usable_size(const void* mem)
+ak_sz ak_malloc_usable_size(const void* mem)
 {
     if (mem) {
         ak_sz ty = ak_alloc_type_bits(mem);
@@ -267,7 +267,7 @@ size_t ak_malloc_usable_size(const void* mem)
     }
 }
 
-void* ak_realloc(void* mem, size_t newsz)
+void* ak_realloc(void* mem, ak_sz newsz)
 {
     void* newmem = ak_malloc(newsz);
     if (!newmem) {

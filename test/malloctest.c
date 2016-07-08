@@ -8,13 +8,17 @@
  * work once user-level malloc is implemented.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <err.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 #include "akmalloc/malloc.h"
+
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <err.h>
 
 #define _PATH_RANDOM   "/dev/random"
 
@@ -114,7 +118,7 @@ checkblock(volatile void *ptr, size_t size, unsigned bias, int doprint)
             printf("FAILED: data mismatch at offset %lu of block "
                    "at 0x%lx: %lu vs. %lu\n",
                    (unsigned long) (i*sizeof(unsigned long)),
-                   (unsigned long)(uintptr_t)pl,
+                   (unsigned long)(ak_sz)pl,
                    pl[i], val);
             return -1;
         }
@@ -286,7 +290,7 @@ test3(void)
 
         tot += sizeof(struct test3);
 
-        markblock(list->junk, sizeof(list->junk), (uintptr_t)list, 0);
+        markblock(list->junk, sizeof(list->junk), (ak_sz)list, 0);
 
         ct++;
         if (ct%128==0) {
@@ -322,7 +326,7 @@ test3(void)
         tmp = list->next;
 
         if (checkblock(list->junk, sizeof(list->junk), 
-                   (uintptr_t)list, 0)) {
+                   (ak_sz)list, 0)) {
             failed = 1;
         }
 

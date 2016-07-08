@@ -67,12 +67,6 @@ static void ak_munmap(void* p, ak_sz s)
 #else
 
 #include <sys/mman.h>
-#include <unistd.h>
-
-inline static ak_sz ak_page_size()
-{
-    return sysconf(_SC_PAGESIZE);
-}
 
 static void* ak_mmap(ak_sz s)
 {
@@ -83,6 +77,13 @@ static void* ak_mmap(ak_sz s)
 static void ak_munmap(void* p, ak_sz s)
 {
     (void)munmap(p, s);
+}
+
+#include <unistd.h>
+
+inline static ak_sz ak_page_size()
+{
+    return sysconf(_SC_PAGESIZE);
 }
 
 #endif
