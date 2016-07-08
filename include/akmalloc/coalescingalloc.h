@@ -227,6 +227,7 @@ ak_inline static void ak_ca_init_root_default(ak_ca_root* root)
 
 static void ak_ca_destroy(ak_ca_root* root)
 {
+    root->nempty = root->release = 0;
 }
 
 #endif/*AKMALLOC_COALESCING_ALLOC_H*/

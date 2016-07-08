@@ -7,6 +7,12 @@
 
 #include "akmalloc/coalescingalloc.h"
 
+#if !defined(NDEBUG)
+#  define TEST_DESTRUCTION 1
+#else
+#  define TEST_DESTRUCTION 0
+#endif
+
 CPP_TEST( config )
 {
     ASSERT_TRUE(AK_COALESCE_ALIGN >= 16);
@@ -45,4 +51,10 @@ CPP_TEST( caRootInit )
 
     ASSERT_TRUE(r.nempty == 0);
     ASSERT_TRUE(r.release == 0);
+
+#if TEST_DESTRUCTION
+    ak_ca_destroy(&r);
+    ASSERT_TRUE(r.nempty == 0);
+    ASSERT_TRUE(r.release == 0);
+#endif
 }
