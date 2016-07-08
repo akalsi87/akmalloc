@@ -57,4 +57,26 @@ CPP_TEST( caRootInit )
     ASSERT_TRUE(r.nempty == 0);
     ASSERT_TRUE(r.release == 0);
 #endif
+
+    // test circ list for each
+    {
+        ak_u32 ct = 0;
+        ak_circ_list_for_each(ak_free_list_node, flnode, &(r.free_root)) {
+            (void)flnode;
+            ++ct;
+        }
+        ASSERT_TRUE(ct == 0);
+
+        ak_circ_list_for_each(ak_ca_segment, mseg, &(r.main_root)) {
+            (void)mseg;
+            ++ct;
+        }
+        ASSERT_TRUE(ct == 0);
+
+        ak_circ_list_for_each(ak_ca_segment, eseg, &(r.empty_root)) {
+            (void)eseg;
+            ++ct;
+        }
+        ASSERT_TRUE(ct == 0);
+    }
 }

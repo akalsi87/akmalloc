@@ -49,6 +49,13 @@ For more information, please refer to <http://unlicense.org/>
  */
 #define AK_COALESCE_ALIGN 16
 
+#define AK_COALESCE_SEGMENT_GRANULARITY 65536
+
+#if !defined(AK_COALESCE_SEGMENT_SIZE)
+/* 1 MB */
+#  define AK_COALESCE_SEGMENT_SIZE (AK_SZ_ONE << 20)
+#endif
+
 typedef void* ak_alloc_info;
 
 typedef struct ak_alloc_node_tag ak_alloc_node;
@@ -205,12 +212,19 @@ ak_inline static void ak_ca_set_is_free(ak_alloc_info* p, int v)
     ak_ca_segment_link_fd(sL, fL);                   \
   } while (0)
 
+#define ak_circ_list_for_each(type, name, list)            \
+    type* name = (list);                                   \
+    for(type* const iterroot = name; name != iterroot; name = name->fd)
+
 /**************************************************************/
 /* P U B L I C                                                */
 /**************************************************************/
 
 static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofree)
 {
+    AKMALLOC_ASSERT_ALWAYS(AK_COALESCE_SEGMENT_SIZE % AK_COALESCE_SEGMENT_GRANULARITY == 0);
+    AKMALLOC_ASSERT_ALWAYS(((AK_COALESCE_SEGMENT_SIZE & (AK_COALESCE_SEGMENT_SIZE - 1)) == 0) && "Segment size must be a power of 2");
+
     ak_ca_segment_link(&(root->main_root), &(root->main_root), &(root->main_root));
     ak_ca_segment_link(&(root->empty_root), &(root->empty_root), &(root->empty_root));
     ak_free_list_node_link(&(root->free_root), &(root->free_root), &(root->free_root));
