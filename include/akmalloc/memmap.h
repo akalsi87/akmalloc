@@ -77,7 +77,7 @@ inline static ak_sz ak_page_size()
 static void* ak_mmap(ak_sz s)
 {
     void* addr = mmap(0, s, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
-    return (addr == (void*)AKSIZE_MAX) ? 0 : addr;
+    return (addr == (void*)AK_SZ_MAX) ? 0 : addr;
 }
 
 static void ak_munmap(void* p, ak_sz s)

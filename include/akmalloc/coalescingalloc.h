@@ -35,54 +35,21 @@ For more information, please refer to <http://unlicense.org/>
 
 #include "akmalloc/assert.h"
 #include "akmalloc/inline.h"
+#include "akmalloc/constants.h"
 #include "akmalloc/setup.h"
 #include "akmalloc/utils.h"
 
+/**
+ * We choose a minimum alignment of 16. One could increase this, but not decrease.
+ *
+ * 16 byte alignment buys us a few things:
+ * - The 3 low-bits of an address will be 000. Therefore we can store metadata in them.
+ * - On x64, we can exactly store two pointers worth of information in any block which
+ *   can be used to house an implicit free list.
+ */
 #define AK_COALESCE_ALIGN 16
 
 typedef void* ak_alloc_info;
-
-ak_inline static void* ak_ca_to_ptr(ak_alloc_info p)
-{
-    return (void*)(((ak_sz)p) & ~(AK_COALESCE_ALIGN - 1));
-}
-
-ak_inline static ak_sz ak_ca_is_first(ak_alloc_info p)
-{
-    return (((ak_sz)p) & (AK_SZ_ONE << 0));
-}
-
-ak_inline static ak_sz ak_ca_is_last(ak_alloc_info p)
-{
-    return (((ak_sz)p) & (AK_SZ_ONE << 1));
-}
-
-ak_inline static ak_sz ak_ca_is_free(ak_alloc_info p)
-{
-    return (((ak_sz)p) & (AK_SZ_ONE << 2));
-}
-
-ak_inline static void ak_ca_set_ptr(ak_alloc_info* p, void* ptr)
-{
-    AKMALLOC_ASSERT(ptr == ak_ca_to_ptr((ak_alloc_info)ptr));
-    *p = (ak_alloc_info)(((ak_sz)*p)  &  (AK_COALESCE_ALIGN - 1)) |
-                        (((ak_sz)ptr) & ~(AK_COALESCE_ALIGN - 1));
-}
-
-ak_inline static void ak_ca_set_is_first(ak_alloc_info* p, int v)
-{
-    *p = (ak_alloc_info)((((ak_sz)*p) & ~(AK_SZ_ONE << 0)) | (v ? (AK_SZ_ONE << 0) : 0));
-}
-
-ak_inline static void ak_ca_set_is_last(ak_alloc_info* p, int v)
-{
-    *p = (ak_alloc_info)((((ak_sz)*p) & ~(AK_SZ_ONE << 1)) | (v ? (AK_SZ_ONE << 1) : 0));
-}
-
-ak_inline static ak_sz ak_ca_set_is_free(ak_alloc_info* p, int v)
-{
-    *p = (ak_alloc_info)((((ak_sz)*p) & ~(AK_SZ_ONE << 2)) | (v ? (AK_SZ_ONE << 2) : 0));
-}
 
 typedef struct ak_alloc_node_tag ak_alloc_node;
 
@@ -114,7 +81,7 @@ struct ak_ca_segment_tag
 
 struct ak_ca_root_tag
 {
-    ak_ca_segment rest_root;
+    ak_ca_segment main_root;
     ak_ca_segment empty_root;
 
     ak_free_list_node free_root;
@@ -125,6 +92,52 @@ struct ak_ca_root_tag
     ak_u32 RELEASE_RATE;
     ak_u32 MAX_SEGMENTS_TO_FREE;
 };
+
+/**************************************************************/
+/* P R I V A T E                                              */
+/**************************************************************/
+
+ak_inline static void* ak_ca_to_ptr(ak_alloc_info p)
+{
+    return (void*)(((ak_sz)p) & ~(AK_COALESCE_ALIGN - 1));
+}
+
+ak_inline static ak_sz ak_ca_is_first(ak_alloc_info p)
+{
+    return (((ak_sz)p) & (AK_SZ_ONE << 0));
+}
+
+ak_inline static ak_sz ak_ca_is_last(ak_alloc_info p)
+{
+    return (((ak_sz)p) & (AK_SZ_ONE << 1));
+}
+
+ak_inline static ak_sz ak_ca_is_free(ak_alloc_info p)
+{
+    return (((ak_sz)p) & (AK_SZ_ONE << 2));
+}
+
+ak_inline static void ak_ca_set_ptr(ak_alloc_info* p, void* ptr)
+{
+    AKMALLOC_ASSERT(ptr == ak_ca_to_ptr((ak_alloc_info)ptr));
+    *p = (ak_alloc_info)((((ak_sz)*p)  &  (AK_COALESCE_ALIGN - 1)) |
+                         (((ak_sz)ptr) & ~(AK_COALESCE_ALIGN - 1)));
+}
+
+ak_inline static void ak_ca_set_is_first(ak_alloc_info* p, int v)
+{
+    *p = (ak_alloc_info)((((ak_sz)*p) & ~(AK_SZ_ONE << 0)) | (v ? (AK_SZ_ONE << 0) : 0));
+}
+
+ak_inline static void ak_ca_set_is_last(ak_alloc_info* p, int v)
+{
+    *p = (ak_alloc_info)((((ak_sz)*p) & ~(AK_SZ_ONE << 1)) | (v ? (AK_SZ_ONE << 1) : 0));
+}
+
+ak_inline static void ak_ca_set_is_free(ak_alloc_info* p, int v)
+{
+    *p = (ak_alloc_info)((((ak_sz)*p) & ~(AK_SZ_ONE << 2)) | (v ? (AK_SZ_ONE << 2) : 0));
+}
 
 #define ak_free_list_node_unlink(node)               \
   do {                                               \
@@ -191,5 +204,29 @@ struct ak_ca_root_tag
     ak_ca_segment_link_bk(sL, bL);                   \
     ak_ca_segment_link_fd(sL, fL);                   \
   } while (0)
+
+/**************************************************************/
+/* P U B L I C                                                */
+/**************************************************************/
+
+static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofree)
+{
+    ak_ca_segment_link(&(root->main_root), &(root->main_root), &(root->main_root));
+    ak_ca_segment_link(&(root->empty_root), &(root->empty_root), &(root->empty_root));
+    ak_free_list_node_link(&(root->free_root), &(root->free_root), &(root->free_root));
+    root->nempty = root->release = 0;
+
+    root->RELEASE_RATE = relrate;
+    root->MAX_SEGMENTS_TO_FREE = maxsegstofree;
+}
+
+ak_inline static void ak_ca_init_root_default(ak_ca_root* root)
+{
+    ak_ca_init_root(root, 4095, 10);
+}
+
+static void ak_ca_destroy(ak_ca_root* root)
+{
+}
 
 #endif/*AKMALLOC_COALESCING_ALLOC_H*/

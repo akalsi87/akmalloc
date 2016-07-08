@@ -30,8 +30,10 @@ add_test_exe    (tBitSet tBitSet.cpp)
 test_link_libs  (tBitSet ${to_link})
 test_create     (tBitSet)
 
-if (NOT AKMALLOC_LIBRARY)
 add_test_exe    (tSlab tSlab.cpp)
-test_link_libs  (tSlab ${to_link})
+test_link_libs  (tSlab )
 test_create     (tSlab)
-endif()
+
+add_test_exe    (tCoalescingAlloc tCoalescingAlloc.cpp)
+test_link_libs  (tCoalescingAlloc )
+test_create     (tCoalescingAlloc)
