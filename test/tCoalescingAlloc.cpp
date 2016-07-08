@@ -85,11 +85,6 @@ CPP_TEST( caRootInit )
 #endif
 }
 
-CPP_TEST( largeAllocs )
-{
-
-}
-
 void shuffle(ak_sz* array, ak_sz n)
 {
     if (n > 1) {
@@ -121,6 +116,10 @@ CPP_TEST( allocRandomFree )
 
     ak_ca_root r;
     ak_ca_init_root(&r, 100, 1);
+
+    void* za = ak_ca_alloc(&r, 0);
+    ASSERT_TRUE(za != AK_NULLPTR);
+    ak_ca_free(&r, za);
 
     for (ak_sz i = 0; i < nptrs; ++i) {
         ak_sz s = (rand() % (sizemax - sizemin)) + sizemin;

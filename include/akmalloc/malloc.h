@@ -33,7 +33,7 @@ For more information, please refer to <http://unlicense.org/>
 #ifndef AKMALLOC_MALLOC_H
 #define AKMALLOC_MALLOC_H
 
-#if defined(AKMALLOC_USE_PREFIX) && !AKMALLOC_USE_PREFIX
+#if !defined(AKMALLOC_USE_PREFIX) || !AKMALLOC_USE_PREFIX
 #  define ak_malloc              malloc
 #  define ak_calloc              calloc
 #  define ak_free                free

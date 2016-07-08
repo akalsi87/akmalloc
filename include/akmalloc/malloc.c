@@ -35,30 +35,58 @@ For more information, please refer to <http://unlicense.org/>
 
 #include "akmalloc/setup.h"
 #include "akmalloc/slab.h"
+#include "akmalloc/coalescingalloc.h"
 
-/***********************************************
- * Coalescing allocator
- ***********************************************/
-
-
+#if defined(AKMALLOC_BUILD)
+#include "akmalloc/malloc.h"
+#endif
 
 /***********************************************
  * Exported APIs
  ***********************************************/
 
+static int MALLOC_INIT = 0;
+static ak_ca_root MALLOC_ROOT;
+
+static void* ak_memset(void* m, int v, ak_sz sz)
+{
+    char* mem = (char*)m;
+    for (ak_sz i = 0; i != sz; ++i) {
+        mem[i] = v;
+    }
+    return m;
+}
+
+static void ak_memcpy(void* d, const void* s, ak_sz sz)
+{
+    char* mem = (char*)d;
+    const char* srcmem = (const char*)s;
+    for (ak_sz i = 0; i != sz; ++i) {
+        mem[i] = srcmem[i];
+    }
+}
+
 void* ak_malloc(size_t sz)
 {
-    return 0;
+    if (ak_unlikely(!MALLOC_INIT)) {
+        ak_ca_init_root_default(&MALLOC_ROOT);
+        MALLOC_INIT = 1;
+    }
+    return ak_ca_alloc(&MALLOC_ROOT, sz);
 }
 
 void* ak_calloc(size_t elsz, size_t numel)
 {
-    return 0;
+    ak_sz sz = elsz*numel;
+    void* mem = ak_malloc(sz);
+    return ak_memset(mem, 0, sz);
 }
 
 void ak_free(void* mem)
 {
-
+    if (mem) {
+        ak_ca_free(&MALLOC_ROOT, mem);
+    }
 }
 
 void* ak_aligned_alloc(size_t sz, size_t aln)
@@ -76,14 +104,27 @@ void* ak_memalign(size_t sz, size_t aln)
     return 0;
 }
 
-void* ak_realloc(void* mem, size_t newsz)
-{
-    return 0;
-}
-
 size_t ak_malloc_usable_size(const void* mem)
 {
-    return 0;
+    if (mem) {
+        const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
+        return ak_ca_to_sz(n->currinfo);
+    } else {
+        return 0;
+    }
+}
+
+void* ak_realloc(void* mem, size_t newsz)
+{
+    void* newmem = ak_malloc(newsz);
+    if (!newmem) {
+        return 0;
+    }
+    if (ak_likely(mem)) {
+        ak_memcpy(newmem, mem, ak_malloc_usable_size(mem));
+        ak_free(mem);
+    }
+    return newmem;
 }
 
 #endif/*AKMALLOC_MALLOC_C*/

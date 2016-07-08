@@ -150,7 +150,7 @@ ak_inline static void ak_bitset_flip(ak_bitset32* bs)
 
 /* ak_bitset512 */
 
-struct ak_bitset512
+struct ak_bitset512_tag
 {
     ak_bitset32 a0;
     ak_bitset32 a1;
@@ -169,6 +169,8 @@ struct ak_bitset512
     ak_bitset32 a14;
     ak_bitset32 a15;
 };
+
+typedef struct ak_bitset512_tag ak_bitset512;
 
 ak_inline static int ak_bitset512_all(const ak_bitset512* bs)
 {

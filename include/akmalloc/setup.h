@@ -70,9 +70,9 @@ For more information, please refer to <http://unlicense.org/>
 
 static void* ak_os_alloc(size_t sz)
 {
-    static const ak_sz pgsz = ak_page_size();
-    static_cast<void>(pgsz);
-    AKMALLOC_ASSERT_ALWAYS(pgsz == AKMALLOC_DEFAULT_PAGE_SIZE);
+    static const ak_sz pgsz = AKMALLOC_DEFAULT_PAGE_SIZE;
+    (void)(pgsz);
+    AKMALLOC_ASSERT_ALWAYS(pgsz == ak_page_size());
     return AKMALLOC_MMAP(sz);
 }
 

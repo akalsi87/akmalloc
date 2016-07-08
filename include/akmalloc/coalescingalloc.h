@@ -106,25 +106,13 @@ struct ak_ca_root_tag
 
 #define ak_as_ptr(x) (&(x))
 
-ak_inline static ak_sz ak_ca_to_sz(ak_alloc_info p)
-{
-    return (((ak_sz)p) & ~(AK_COALESCE_ALIGN - 1));
-}
+#define ak_ca_to_sz(p) (((ak_sz)(p)) & ~(AK_COALESCE_ALIGN - 1))
 
-ak_inline static ak_sz ak_ca_is_first(ak_alloc_info p)
-{
-    return (((ak_sz)p) & (AK_SZ_ONE << 0));
-}
+#define ak_ca_is_first(p) (((ak_sz)(p)) & (AK_SZ_ONE << 0))
 
-ak_inline static ak_sz ak_ca_is_last(ak_alloc_info p)
-{
-    return (((ak_sz)p) & (AK_SZ_ONE << 1));
-}
+#define ak_ca_is_last(p) (((ak_sz)(p)) & (AK_SZ_ONE << 1))
 
-ak_inline static ak_sz ak_ca_is_free(ak_alloc_info p)
-{
-    return (((ak_sz)p) & (AK_SZ_ONE << 2));
-}
+#define ak_ca_is_free(p) (((ak_sz)(p)) & (AK_SZ_ONE << 2))
 
 ak_inline static void ak_ca_set_sz(ak_alloc_info* p, ak_sz sz)
 {
@@ -240,7 +228,7 @@ ak_inline static void ak_ca_update_footer(ak_alloc_node* p)
     type* name = (list)->fd;                         \
     for(type* const iterroot = (list); name != iterroot; name = name->fd)
 
-#define ak_ca_aligned_size(x) (((x) + AK_COALESCE_ALIGN - 1) & ~(AK_COALESCE_ALIGN - 1))
+#define ak_ca_aligned_size(x) (x) ? (((x) + AK_COALESCE_ALIGN - 1) & ~(AK_COALESCE_ALIGN - 1)) : AK_COALESCE_ALIGN
 
 #define ak_ca_aligned_segment_size(x) (((x) + (AK_COALESCE_SEGMENT_SIZE) - 1) & ~((AK_COALESCE_SEGMENT_SIZE) - 1))
 
@@ -365,7 +353,7 @@ static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofr
 
 ak_inline static void ak_ca_init_root_default(ak_ca_root* root)
 {
-    ak_ca_init_root(root, 4095, 10);
+    ak_ca_init_root(root, 2048, 2048);
 }
 
 static void* ak_ca_alloc(ak_ca_root* root, ak_sz s)
