@@ -362,9 +362,9 @@ static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofr
 ak_inline static void ak_ca_init_root_default(ak_ca_root* root)
 {
 #if AKMALLOC_BITNESS == 32
-    static const ak_sz rate =  128;
+    static const ak_u32 rate =  128;
 #else
-    static const ak_sz rate = 1024;
+    static const ak_u32 rate = 1024;
 #endif
     ak_ca_init_root(root, rate, rate);
 }
