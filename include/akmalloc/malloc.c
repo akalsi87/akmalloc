@@ -33,15 +33,17 @@ For more information, please refer to <http://unlicense.org/>
 #ifndef AKMALLOC_MALLOC_C
 #define AKMALLOC_MALLOC_C
 
+#if !AKMALLOC_WINDOWS
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #endif
 
 #include "akmalloc/slab.h"
 #include "akmalloc/coalescingalloc.h"
 #include "akmalloc/setup.h"
 
-#if defined(AKMALLOC_BUILD)
+#if !defined(AKMALLOC_LINK_STATIC)
 #include "akmalloc/malloc.h"
 #endif
 
@@ -141,6 +143,8 @@ static void ak_try_reclaim_memory()
     MALLOC_ROOT.ca.nempty = 0;
     MALLOC_ROOT.ca.release = 0;
 }
+
+AK_EXTERN_C_BEGIN
 
 void* ak_malloc(size_t sz)
 {
@@ -283,5 +287,7 @@ void* ak_realloc(void* mem, size_t newsz)
     }
     return newmem;
 }
+
+AK_EXTERN_C_END
 
 #endif/*AKMALLOC_MALLOC_C*/

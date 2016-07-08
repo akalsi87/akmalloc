@@ -126,4 +126,12 @@ For more information, please refer to <http://unlicense.org/>
 #  define AKMALLOC_ARM        0
 #endif
 
+#if defined(__cplusplus)
+#  define AK_EXTERN_C_BEGIN extern "C"  {
+#  define AK_EXTERN_C_END   }
+#else
+#  define AK_EXTERN_C_BEGIN
+#  define AK_EXTERN_C_END  
+#endif
+
 #endif/*AKMALLOC_CONFIG_H*/

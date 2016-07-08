@@ -41,12 +41,12 @@ set(akmalloc_exp_hdr
 
 if (AKMALLOC_LIBRARY)
   set(akmalloc_all_src ${akmalloc_exp_hdr};${akmalloc_impl})
-  add_lib(akmalloc SHARED ${akmalloc_all_src})
+  add_lib(akmalloc SHARED ${akmalloc_impl})
   add_lib_build_def(akmalloc include/akmalloc/exportsym.h AKMALLOC)
   link_libs(akmalloc )
   if (is_msvc)
     projmsg("Cannot build this project as a library on Windows overriding default names. Using AKMALLOC_USE_PREFIX")
-    add_definitions(-DAKMALLOC_USE_PREFIX=1)
+    add_comp_def(akmalloc -DAKMALLOC_USE_PREFIX=1)
   endif()
   set_tgt_ver(akmalloc "${akmalloc_major}.${akmalloc_minor}.${akmalloc_patch}" "${akmalloc_major}.${akmalloc_minor}")
   # -- Install!

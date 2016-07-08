@@ -49,16 +49,12 @@ For more information, please refer to <http://unlicense.org/>
 #  define ak_malloc_usable_size  malloc_usable_size
 #endif
 
-#if !defined(AKMALLOC_BUILD)
-#  if !defined(AKMALLOC_EXPORT)
-#    define AKMALLOC_EXPORT extern
-#  endif
-#else
+#if !defined(AKMALLOC_EXPORT)
 #  include "akmalloc/exportsym.h"
-#  if !defined(AKMALLOC_EXPORT)
-#    define AKMALLOC_EXPORT AKMALLOC_API
-#  endif
+#  define AKMALLOC_EXPORT AKMALLOC_API
 #endif
+
+AK_EXTERN_C_BEGIN
 
 AKMALLOC_EXPORT void*  ak_malloc(size_t);
 AKMALLOC_EXPORT void*  ak_calloc(size_t, size_t);
@@ -69,7 +65,9 @@ AKMALLOC_EXPORT void*  ak_memalign(size_t, size_t);
 AKMALLOC_EXPORT void*  ak_realloc(void*, size_t);
 AKMALLOC_EXPORT size_t ak_malloc_usable_size(const void*);
 
-#if !defined(AKMALLOC_BUILD)
+AK_EXTERN_C_END
+
+#if defined(AKMALLOC_LINK_STATIC)
 #  include "akmalloc/malloc.c"
 #endif
 
