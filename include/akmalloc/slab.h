@@ -302,7 +302,7 @@ static void ak_slab_init_root(ak_slab_root* s, ak_sz sz, ak_u32 npages, ak_u32 r
 
 ak_inline static void ak_slab_init_root_default(ak_slab_root* s, ak_sz sz)
 {
-    ak_slab_init_root(s, sz, ak_num_pages_for_sz(sz), (AK_SLAB_RELEASE_RATE), (AK_SLAB_MAX_PAGES_TO_FREE));
+    ak_slab_init_root(s, sz, (ak_u32)ak_num_pages_for_sz(sz), (ak_u32)(AK_SLAB_RELEASE_RATE), (ak_u32)(AK_SLAB_MAX_PAGES_TO_FREE));
 }
 
 static void* ak_slab_alloc(ak_slab_root* root)

@@ -68,6 +68,10 @@ typedef struct ak_ca_root_tag ak_ca_root;
 
 struct ak_alloc_node_tag
 {
+#if AKMALLOC_BITNESS == 32
+    ak_alloc_info _unused0;
+    ak_alloc_info _unused1;
+#endif
     ak_alloc_info previnfo;
     ak_alloc_info currinfo;
 };
@@ -117,8 +121,7 @@ struct ak_ca_root_tag
 ak_inline static void ak_ca_set_sz(ak_alloc_info* p, ak_sz sz)
 {
     AKMALLOC_ASSERT(sz == ak_ca_to_sz((ak_alloc_info)sz));
-    // 7 because those are the only useful bits. the fourth bit may collect
-    // garbage.
+    // 7 because there are only 3 useful bits. the fourth bit may collect garbage.
     *p = (ak_alloc_info)((((ak_sz)*p)  &  ((ak_sz)7)) |
                                  (sz   & ~(AK_COALESCE_ALIGN - 1)));
 }
@@ -238,7 +241,7 @@ static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz)
 {
     // walk through list finding the first element that fits and split
     ak_circ_list_for_each(ak_free_list_node, node, root) {
-        ak_alloc_node* n = (ak_alloc_node*)(node - 1);
+        ak_alloc_node* n = ((ak_alloc_node*)(node)) - 1;
         AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
         ak_sz nodesz = ak_ca_to_sz(n->currinfo);
         if (nodesz >= sz) {
@@ -284,10 +287,13 @@ static int ak_ca_add_new_segment(ak_ca_root* root, char* mem, ak_sz sz)
         seg->head = (ak_alloc_node*)mem;
         {// add to free list
             ak_alloc_node* hd = seg->head;
+            ak_sz actualsize = (sz - sizeof(ak_alloc_node) - sizeof(ak_ca_segment));
+            // store actual size in previnfo
+            hd->previnfo = actualsize;
             ak_ca_set_is_first(ak_as_ptr(hd->currinfo), 1);
             ak_ca_set_is_last(ak_as_ptr(hd->currinfo), 1);
             ak_ca_set_is_free(ak_as_ptr(hd->currinfo), 1);
-            ak_ca_set_sz(ak_as_ptr(hd->currinfo), (sz - sizeof(ak_alloc_node) - sizeof(ak_ca_segment)));
+            ak_ca_set_sz(ak_as_ptr(hd->currinfo), actualsize);
             ak_free_list_node* fl = (ak_free_list_node*)(hd + 1);
             ak_free_list_node_link(fl, root->free_root.fd, ak_as_ptr(root->free_root));
         }
@@ -355,7 +361,12 @@ static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofr
 
 ak_inline static void ak_ca_init_root_default(ak_ca_root* root)
 {
-    ak_ca_init_root(root, 2048, 2048);
+#if AKMALLOC_BITNESS == 32
+    static const ak_sz rate =  128;
+#else
+    static const ak_sz rate = 1024;
+#endif
+    ak_ca_init_root(root, rate, rate);
 }
 
 static void* ak_ca_alloc(ak_ca_root* root, ak_sz s)
@@ -455,7 +466,10 @@ static void ak_ca_free(ak_ca_root* root, void* m)
         // remove free list entry
         ak_free_list_node* fl = (ak_free_list_node*)(tocheck + 1);
         ak_free_list_node_unlink(fl);
-        ak_ca_segment* seg = (ak_ca_segment*)((char*)(tocheck + 1) + ak_ca_to_sz(tocheck->currinfo));
+        // actual size is in tocheck->previnfo
+        AKMALLOC_ASSERT(tocheck->previnfo == ak_ca_to_sz(tocheck->currinfo));
+        ak_ca_segment* seg = (ak_ca_segment*)((char*)(tocheck + 1) + tocheck->previnfo);
+        AKMALLOC_ASSERT(tocheck->previnfo == (seg->sz - sizeof(ak_alloc_node) - sizeof(ak_ca_segment)));
         ak_ca_segment_unlink(seg);
         ak_ca_segment_link(seg, root->empty_root.fd, ak_as_ptr(root->empty_root));
         ++(root->nempty); ++(root->release);

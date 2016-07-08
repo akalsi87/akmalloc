@@ -123,6 +123,21 @@ static void ak_memcpy(void* d, const void* s, ak_sz sz)
     }
 }
 
+static void ak_try_reclaim_memory()
+{
+    // for each slab, reclaim empty pages
+    for (ak_sz i = 0; i < NSLABS; ++i) {
+        ak_slab_root* s = ak_as_ptr(MALLOC_ROOT.slabs[i]);
+        ak_slab_release_pages(s, ak_as_ptr(s->empty_root), AK_U32_MAX);
+        s->nempty = 0;
+        s->release = 0;
+    }
+    // return unused segments in ca
+    ak_ca_return_os_mem(ak_as_ptr(MALLOC_ROOT.ca.empty_root), AK_U32_MAX);
+    MALLOC_ROOT.ca.nempty = 0;
+    MALLOC_ROOT.ca.release = 0;
+}
+
 void* ak_malloc(size_t sz)
 {
     if (ak_unlikely(!MALLOC_INIT)) {
@@ -132,7 +147,7 @@ void* ak_malloc(size_t sz)
     ak_sz modsz = ak_ca_aligned_size(sz + sizeof(ak_sz));
     if (modsz <= MAX_SMALL_REQUEST) {
         AKMALLOC_ASSERT(modsz % AK_COALESCE_ALIGN == 0);
-        int idx = (modsz >> 4) - 1;
+        ak_sz idx = (modsz >> 4) - 1;
         ak_sz* mem = (ak_sz*)ak_slab_alloc(ak_as_ptr(MALLOC_ROOT.slabs[idx]));
         if (ak_likely(mem)) {
             ak_alloc_mark_slab(mem + 1); // we overallocate
@@ -147,18 +162,49 @@ void* ak_malloc(size_t sz)
             return mem;
         }
     } else {
-        sz += 2*sizeof(ak_sz) + sizeof(ak_ca_segment);
+        sz += sizeof(ak_ca_segment);
         const ak_sz actsz = ak_ca_aligned_segment_size(sz);
-        ak_sz* mem = (ak_sz*)ak_os_alloc(actsz);
+        ak_ca_segment* mem = (ak_ca_segment*)ak_os_alloc(actsz);
         if (ak_likely(mem)) {
-            ak_alloc_mark_mmap(mem + 4);
-            AKMALLOC_ASSERT(ak_alloc_type_mmap(ak_alloc_type_bits(mem + 4)));
-            *mem = actsz;
-            ak_ca_segment* seg = (ak_ca_segment*)(mem + 1);
-            ak_ca_segment_link(seg, MALLOC_ROOT.map_root.fd, ak_as_ptr(MALLOC_ROOT.map_root));
-            return (mem + 4);
+            ak_alloc_mark_mmap(mem + 1);
+            AKMALLOC_ASSERT(ak_alloc_type_mmap(ak_alloc_type_bits(mem + 1)));
+            mem->sz = actsz;
+            ak_ca_segment_link(mem, MALLOC_ROOT.map_root.fd, ak_as_ptr(MALLOC_ROOT.map_root));
+            return (mem + 1);
         }
     }
+
+    // try reclaiming memory and repeat
+    ak_try_reclaim_memory();
+
+    if (modsz <= MAX_SMALL_REQUEST) {
+        AKMALLOC_ASSERT(modsz % AK_COALESCE_ALIGN == 0);
+        ak_sz idx = (modsz >> 4) - 1;
+        ak_sz* mem = (ak_sz*)ak_slab_alloc(ak_as_ptr(MALLOC_ROOT.slabs[idx]));
+        if (ak_likely(mem)) {
+            ak_alloc_mark_slab(mem + 1); // we overallocate
+            AKMALLOC_ASSERT(ak_alloc_type_slab(ak_alloc_type_bits(mem + 1)));
+            return mem + 1;
+        }
+    } else if (sz < MMAP_SIZE) {
+        ak_sz* mem = (ak_sz*)ak_ca_alloc(ak_as_ptr(MALLOC_ROOT.ca), sz);
+        if (ak_likely(mem)) {
+            ak_alloc_mark_coalesce(mem);
+            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ak_alloc_type_bits(mem)));
+            return mem;
+        }
+    } else {
+        const ak_sz actsz = ak_ca_aligned_segment_size(sz);
+        ak_ca_segment* mem = (ak_ca_segment*)ak_os_alloc(actsz);
+        if (ak_likely(mem)) {
+            ak_alloc_mark_mmap(mem + 1);
+            AKMALLOC_ASSERT(ak_alloc_type_mmap(ak_alloc_type_bits(mem + 1)));
+            mem->sz = actsz;
+            ak_ca_segment_link(mem, MALLOC_ROOT.map_root.fd, ak_as_ptr(MALLOC_ROOT.map_root));
+            return (mem + 1);
+        }
+    }
+
     return AK_NULLPTR;
 }
 
@@ -176,10 +222,9 @@ void ak_free(void* mem)
         if (ak_alloc_type_slab(ty)) {
             ak_slab_free(((ak_sz*)mem) - 1);
         } else if (ak_alloc_type_mmap(ty)) {
-            ak_sz* p = (ak_sz*)mem;
-            ak_ca_segment* seg = (ak_ca_segment*)(p - 3);
+            ak_ca_segment* seg = ((ak_ca_segment*)mem) - 1;
             ak_ca_segment_unlink(seg);
-            ak_os_free(p - 4, *(p - 4));
+            ak_os_free(seg, seg->sz);
         } else {
             AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
             ak_ca_free(ak_as_ptr(MALLOC_ROOT.ca), mem);
@@ -211,7 +256,7 @@ size_t ak_malloc_usable_size(const void* mem)
             ak_slab* slab = (ak_slab*)(ak_page_start_before((void*)mem));
             return (slab->root->sz - sizeof(ak_sz));
         } else if (ak_alloc_type_mmap(ty)) {
-            return *(((ak_sz*)mem) - 4) - 4*sizeof(ak_sz); 
+            return (((ak_ca_segment*)mem) - 1)->sz - sizeof(ak_ca_segment);
         } else {
             AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
             const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;

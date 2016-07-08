@@ -36,10 +36,15 @@ For more information, please refer to <http://unlicense.org/>
 #include <stdlib.h>
 #include <stdio.h>
 
+static void ak_call_abort()
+{
+    abort();
+}
+
 #define AKMALLOC_DEFAULT_ASSERT(x)                                                                         \
   if (!(x)) {                                                                                              \
       fprintf(stderr, "%s (%d) : %s\n", __FILE__, __LINE__, "AKMALLOC_ASSERT: failed condition `" #x "'"); \
-      abort();                                                                                             \
+      ak_call_abort();                                                                                     \
   }
 
 #if !defined(AKMALLOC_ASSERT_IMPL)

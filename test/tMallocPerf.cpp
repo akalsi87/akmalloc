@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define USE_MALLOC 0
+#define USE_MALLOC 1
 
 void shuffle(ak_sz* array, ak_sz n)
 {
@@ -133,7 +133,11 @@ CPP_TEST( allocRandomFreeCoalesce )
 
 CPP_TEST( allocRandomFreeMap )
 {
+#if AKMALLOC_BITNESS == 64
     static const ak_sz nptrs = 1000;
+#else
+    static const ak_sz nptrs =  600;
+#endif
     static const ak_sz sizemin = (AK_SZ_ONE << 20);
     static const ak_sz sizemax = (AK_SZ_ONE << 22);
 
