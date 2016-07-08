@@ -117,7 +117,9 @@ struct ak_ca_root_tag
 ak_inline static void ak_ca_set_sz(ak_alloc_info* p, ak_sz sz)
 {
     AKMALLOC_ASSERT(sz == ak_ca_to_sz((ak_alloc_info)sz));
-    *p = (ak_alloc_info)((((ak_sz)*p)  &  (AK_COALESCE_ALIGN - 1)) |
+    // 7 because those are the only useful bits. the fourth bit may collect
+    // garbage.
+    *p = (ak_alloc_info)((((ak_sz)*p)  &  ((ak_sz)7)) |
                                  (sz   & ~(AK_COALESCE_ALIGN - 1)));
 }
 

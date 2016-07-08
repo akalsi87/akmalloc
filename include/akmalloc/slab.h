@@ -246,7 +246,8 @@ static void* ak_slab_search(ak_slab* s, ak_sz sz, ak_u32 navail, ak_slab** pslab
         mem = ak_slab_2_mem(s) + (ntz * sz);
 
         *pslab = s;
-        *pntz = (ntz == (int)navail - 1) ? 512 : (ntz + 1);
+        ak_bitset512_fill_num_trailing_zeros(pavail, ntz);
+        *pntz = ntz;
     }
     return mem;
 }

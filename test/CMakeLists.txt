@@ -46,4 +46,8 @@ if (NOT AKMALLOC_LIBRARY)
 add_test_exe    (malloctest malloctest.c)
 test_link_libs  (malloctest )
 test_create     (malloctest)
+
+add_test_exe    (tMallocPerf tMallocPerf.cpp)
+test_link_libs  (tMallocPerf )
+test_create     (tMallocPerf)
 endif()

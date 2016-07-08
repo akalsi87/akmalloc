@@ -45,8 +45,65 @@ For more information, please refer to <http://unlicense.org/>
  * Exported APIs
  ***********************************************/
 
+// Coalescing allocs give 16-byte aligned memory where the preamble
+// uses three bits. The fourth bit is always free. We use that bit
+// to distinguish slabs from coalesced outputs, and mmap-outputs.
+//
+// xxx0 - coalesce
+// 0101 - slab
+// 1001 - mmap
+#define ak_alloc_type_bits(p) \
+  ((*(((ak_sz*)(p)) - 1)) & (AK_COALESCE_ALIGN - 1))
+
+#define ak_alloc_type_coalesce(sz) \
+  ((((ak_sz)sz) & ((ak_sz)8)) == 0)
+
+#define ak_alloc_type_slab(sz) \
+  ((((ak_sz)sz) & (AK_COALESCE_ALIGN - 1)) == 10)
+
+#define ak_alloc_type_mmap(sz) \
+  ((((ak_sz)sz) & (AK_COALESCE_ALIGN - 1)) == 9)
+
+#define ak_alloc_mark_coalesce(p) ((void)(p))
+
+#define ak_alloc_mark_slab(p) \
+  *(((ak_sz*)(p)) - 1) = ((ak_sz)10)
+
+#define ak_alloc_mark_mmap(p) \
+  *(((ak_sz*)(p)) - 1) = ((ak_sz)9)
+
+static const ak_sz NSLABS = 16;
+
+static const ak_sz SLAB_SIZES[NSLABS] = {
+    16,   32,   48,   64,   80,   96,  112,  128,
+   144,  160,  176,  192,  208,  224,  240,  256
+};
+
+static const ak_sz MAX_SMALL_REQUEST = 256;
+
+// 1MB
+static const ak_sz MMAP_SIZE = (AK_SZ_ONE << 20);
+
+typedef struct ak_malloc_state_tag ak_malloc_state;
+
+struct ak_malloc_state_tag
+{
+    ak_slab_root slabs[NSLABS];
+    ak_ca_root   ca;
+    ak_ca_segment map_root;
+};
+
+static void ak_malloc_init_state(ak_malloc_state* s)
+{
+    for (ak_sz i = 0; i != NSLABS; ++i) {
+        ak_slab_init_root_default(ak_as_ptr(s->slabs[i]), SLAB_SIZES[i]);
+    }
+    ak_ca_init_root_default(ak_as_ptr(s->ca));
+    ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
+}
+
 static int MALLOC_INIT = 0;
-static ak_ca_root MALLOC_ROOT;
+static ak_malloc_state MALLOC_ROOT;
 
 static void* ak_memset(void* m, int v, ak_sz sz)
 {
@@ -69,10 +126,40 @@ static void ak_memcpy(void* d, const void* s, ak_sz sz)
 void* ak_malloc(size_t sz)
 {
     if (ak_unlikely(!MALLOC_INIT)) {
-        ak_ca_init_root_default(&MALLOC_ROOT);
+        ak_malloc_init_state(&MALLOC_ROOT);
         MALLOC_INIT = 1;
     }
-    return ak_ca_alloc(&MALLOC_ROOT, sz);
+    ak_sz modsz = ak_ca_aligned_size(sz + sizeof(ak_sz));
+    if (modsz <= MAX_SMALL_REQUEST) {
+        AKMALLOC_ASSERT(modsz % AK_COALESCE_ALIGN == 0);
+        int idx = (modsz >> 4) - 1;
+        ak_sz* mem = (ak_sz*)ak_slab_alloc(ak_as_ptr(MALLOC_ROOT.slabs[idx]));
+        if (ak_likely(mem)) {
+            ak_alloc_mark_slab(mem + 1); // we overallocate
+            AKMALLOC_ASSERT(ak_alloc_type_slab(ak_alloc_type_bits(mem + 1)));
+            return mem + 1;
+        }
+    } else if (sz < MMAP_SIZE) {
+        ak_sz* mem = (ak_sz*)ak_ca_alloc(ak_as_ptr(MALLOC_ROOT.ca), sz);
+        if (ak_likely(mem)) {
+            ak_alloc_mark_coalesce(mem);
+            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ak_alloc_type_bits(mem)));
+            return mem;
+        }
+    } else {
+        sz += 2*sizeof(ak_sz) + sizeof(ak_ca_segment);
+        const ak_sz actsz = ak_ca_aligned_segment_size(sz);
+        ak_sz* mem = (ak_sz*)ak_os_alloc(actsz);
+        if (ak_likely(mem)) {
+            ak_alloc_mark_mmap(mem + 4);
+            AKMALLOC_ASSERT(ak_alloc_type_mmap(ak_alloc_type_bits(mem + 4)));
+            *mem = actsz;
+            ak_ca_segment* seg = (ak_ca_segment*)(mem + 1);
+            ak_ca_segment_link(seg, MALLOC_ROOT.map_root.fd, ak_as_ptr(MALLOC_ROOT.map_root));
+            return (mem + 4);
+        }
+    }
+    return AK_NULLPTR;
 }
 
 void* ak_calloc(size_t elsz, size_t numel)
@@ -85,7 +172,18 @@ void* ak_calloc(size_t elsz, size_t numel)
 void ak_free(void* mem)
 {
     if (mem) {
-        ak_ca_free(&MALLOC_ROOT, mem);
+        ak_sz ty = ak_alloc_type_bits(mem);
+        if (ak_alloc_type_slab(ty)) {
+            ak_slab_free(((ak_sz*)mem) - 1);
+        } else if (ak_alloc_type_mmap(ty)) {
+            ak_sz* p = (ak_sz*)mem;
+            ak_ca_segment* seg = (ak_ca_segment*)(p - 3);
+            ak_ca_segment_unlink(seg);
+            ak_os_free(p - 4, *(p - 4));
+        } else {
+            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
+            ak_ca_free(ak_as_ptr(MALLOC_ROOT.ca), mem);
+        }
     }
 }
 
@@ -107,8 +205,18 @@ void* ak_memalign(size_t sz, size_t aln)
 size_t ak_malloc_usable_size(const void* mem)
 {
     if (mem) {
-        const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
-        return ak_ca_to_sz(n->currinfo);
+        ak_sz ty = ak_alloc_type_bits(mem);
+        if (ak_alloc_type_slab(ty)) {
+            // round to page
+            ak_slab* slab = (ak_slab*)(ak_page_start_before((void*)mem));
+            return (slab->root->sz - sizeof(ak_sz));
+        } else if (ak_alloc_type_mmap(ty)) {
+            return *(((ak_sz*)mem) - 4) - 4*sizeof(ak_sz); 
+        } else {
+            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
+            const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
+            return ak_ca_to_sz(n->currinfo);
+        }
     } else {
         return 0;
     }

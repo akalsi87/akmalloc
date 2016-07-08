@@ -122,7 +122,7 @@ CPP_TEST( allocRandomFree )
     ak_ca_free(&r, za);
 
     for (ak_sz i = 0; i < nptrs; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin)) + sizemin;
+        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
 #if USE_MALLOC
         p[i] = malloc(s);
 #else
@@ -187,7 +187,7 @@ CPP_TEST( allocRandomFreeDefault )
     ak_ca_init_root_default(&r);
 
     for (ak_sz i = 0; i < nptrs; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin)) + sizemin;
+        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
 #if USE_MALLOC
         p[i] = malloc(s);
 #else
@@ -205,7 +205,7 @@ CPP_TEST( allocRandomFreeDefault )
     }
 
     for (ak_sz i = 0; i < nptrs; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin)) + sizemin;
+        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
 #if USE_MALLOC
         p[i] = malloc(s);
 #else
