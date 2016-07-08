@@ -41,6 +41,11 @@ For more information, please refer to <http://unlicense.org/>
 #  define ak_inline __inline__ __attribute__((always_inline))
 #endif/*AKMALLOC_MSVC*/
 
+#if !defined(NDEBUG)
+#  undef ak_inline
+#  define ak_inline
+#endif
+
 #if AKMALLOC_MSVC
 #  define ak_likely(x) x
 #  define ak_unlikely(x) x
