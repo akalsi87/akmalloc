@@ -6,6 +6,10 @@ set(akmalloc_major 0)
 set(akmalloc_minor 0)
 set(akmalloc_patch 1)
 
+if (NOT AKMALLOC_LIBRARY)
+  set(AKMALLOC_LIBRARY 0)
+endif()
+
 set(xprt include/akmalloc)
 
 # create the configured rc file
@@ -47,6 +51,8 @@ if (AKMALLOC_LIBRARY)
   if (is_msvc)
     projmsg("Cannot build this project as a library on Windows overriding default names. Using AKMALLOC_USE_PREFIX")
     add_comp_def(akmalloc -DAKMALLOC_USE_PREFIX=1)
+  else()
+    add_comp_flag(akmalloc "-Wno-unused-function")
   endif()
   set_tgt_ver(akmalloc "${akmalloc_major}.${akmalloc_minor}.${akmalloc_patch}" "${akmalloc_major}.${akmalloc_minor}")
   # -- Install!
