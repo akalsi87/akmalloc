@@ -54,6 +54,7 @@ if (AKMALLOC_LIBRARY)
   else()
     add_comp_flag(akmalloc "-Wno-unused-function")
   endif()
+  add_comp_def(akmalloc -DAKMALLOC_USE_LOCKS)
   set_tgt_ver(akmalloc "${akmalloc_major}.${akmalloc_minor}.${akmalloc_patch}" "${akmalloc_major}.${akmalloc_minor}")
   # -- Install!
   install_tgt(akmalloc)

@@ -108,8 +108,6 @@ struct ak_ca_root_tag
 /* P R I V A T E                                              */
 /**************************************************************/
 
-#define ak_as_ptr(x) (&(x))
-
 #define ak_ca_to_sz(p) (((ak_sz)(p)) & ~(AK_COALESCE_ALIGN - 1))
 
 #define ak_ca_is_first(p) (((ak_sz)(p)) & (AK_SZ_ONE << 0))

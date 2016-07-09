@@ -40,6 +40,8 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/setup.h"
 #include "akmalloc/bitset.h"
 
+#include "akmalloc/atomic.h"
+
 typedef struct ak_slab_tag ak_slab;
 
 typedef struct ak_slab_root_tag ak_slab_root;
@@ -60,6 +62,7 @@ struct ak_slab_root_tag
     ak_u32 navail;
     ak_u32 nempty;
     ak_u32 release;
+    ak_u32 _unused;
 
     ak_slab partial_root;
     ak_slab full_root;
@@ -67,7 +70,16 @@ struct ak_slab_root_tag
 
     ak_u32 RELEASE_RATE;
     ak_u32 MAX_PAGES_TO_FREE;
+    void*  LOCKED;
 };
+
+#if defined(AK_SLAB_USE_LOCKS)
+#  define AK_SLAB_LOCK_ACQUIRE(root) ak_atomic_spin_lock_acquire(ak_as_ptr((root)->LOCKED))
+#  define AK_SLAB_LOCK_RELEASE(root) ak_atomic_spin_lock_release(ak_as_ptr((root)->LOCKED))
+#else
+#  define AK_SLAB_LOCK_ACQUIRE(root)
+#  define AK_SLAB_LOCK_RELEASE(root)
+#endif
 
 #if !defined(AK_SLAB_RELEASE_RATE)
 #  define AK_SLAB_RELEASE_RATE 512
@@ -299,6 +311,7 @@ static void ak_slab_init_root(ak_slab_root* s, ak_sz sz, ak_u32 npages, ak_u32 r
 
     s->RELEASE_RATE = relrate;
     s->MAX_PAGES_TO_FREE = maxpagefree;
+    s->LOCKED = AK_NULLPTR;
 }
 
 ak_inline static void ak_slab_init_root_default(ak_slab_root* s, ak_sz sz)
@@ -311,6 +324,9 @@ static void* ak_slab_alloc(ak_slab_root* root)
     int ntz = 0;
     ak_slab* slab = AK_NULLPTR;
     const ak_sz sz = root->sz;
+
+    ak_atomic_spin_lock_acquire(ak_as_ptr(root->LOCKED));
+
     void* mem = ak_slab_search(&(root->partial_root), sz, root->navail, &slab, &ntz);
 
     if (ak_unlikely(!mem)) {
@@ -325,6 +341,8 @@ static void* ak_slab_alloc(ak_slab_root* root)
         ak_slab_link(slab, root->full_root.fd, &(root->full_root));
     }
 
+    ak_atomic_spin_lock_release(ak_as_ptr(root->LOCKED));
+
     return mem;
 }
 
@@ -336,9 +354,11 @@ static void ak_slab_free(void* p)
     ak_slab* slab = (ak_slab*)(ak_page_start_before(p));
     AKMALLOC_ASSERT(slab->root);
 
-    int movetopartial = ak_slab_none_free(slab);
-
     ak_slab_root* root = slab->root;
+
+    ak_atomic_spin_lock_acquire(ak_as_ptr(root->LOCKED));
+
+    int movetopartial = ak_slab_none_free(slab);
     const ak_sz sz = root->sz;
 
     int idx = (int)(mem - (char*)ak_slab_2_mem(slab))/(int)sz;
@@ -358,6 +378,8 @@ static void ak_slab_free(void* p)
             ak_slab_release_os_mem(root);
         }
     }
+
+    ak_atomic_spin_lock_release(ak_as_ptr(root->LOCKED));
 }
 
 static void ak_slab_destroy(ak_slab_root* root)

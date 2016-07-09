@@ -39,6 +39,17 @@ For more information, please refer to <http://unlicense.org/>
 #endif
 #endif
 
+#include "akmalloc/atomic.h"
+
+#if defined(AKMALLOC_USE_LOCKS)
+#  define AK_SLAB_USE_LOCKS
+#  define AKMALLOC_LOCK_ACQUIRE(lk) ak_atomic_spin_lock_acquire((lk))
+#  define AKMALLOC_LOCK_RELEASE(lk) ak_atomic_spin_lock_release((lk))
+#else
+#  define AKMALLOC_LOCK_ACQUIRE(lk)
+#  define AKMALLOC_LOCK_RELEASE(lk)
+#endif
+
 #include "akmalloc/slab.h"
 #include "akmalloc/coalescingalloc.h"
 #include "akmalloc/setup.h"
@@ -112,6 +123,9 @@ struct ak_malloc_state_tag
     ak_slab_root slabs[NSLABS];
     ak_ca_root   ca;
     ak_ca_segment map_root;
+
+    void* CA_LOCK;
+    void* MAP_LOCK;
 };
 
 static void ak_malloc_init_state(ak_malloc_state* s)
@@ -122,11 +136,9 @@ static void ak_malloc_init_state(ak_malloc_state* s)
     }
     ak_ca_init_root_default(ak_as_ptr(s->ca));
     ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
+    s->CA_LOCK = s->MAP_LOCK = AK_NULLPTR;
     s->init = 1;
 }
-
-static int MALLOC_INIT = 0;
-static ak_malloc_state MALLOC_ROOT;
 
 static void ak_try_reclaim_memory(ak_malloc_state* m)
 {
@@ -156,7 +168,9 @@ static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
             return mem + 1;
         }
     } else if (sz < MMAP_SIZE) {
+        AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->CA_LOCK));
         ak_sz* mem = (ak_sz*)ak_ca_alloc(ak_as_ptr(m->ca), sz);
+        AKMALLOC_LOCK_RELEASE(ak_as_ptr(m->CA_LOCK));
         if (ak_likely(mem)) {
             ak_alloc_mark_coalesce(mem);
             AKMALLOC_ASSERT(ak_alloc_type_coalesce(ak_alloc_type_bits(mem)));
@@ -170,7 +184,9 @@ static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
             ak_alloc_mark_mmap(mem + 1);
             AKMALLOC_ASSERT(ak_alloc_type_mmap(ak_alloc_type_bits(mem + 1)));
             mem->sz = actsz;
+            AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->MAP_LOCK));
             ak_ca_segment_link(mem, m->map_root.fd, ak_as_ptr(m->map_root));
+            AKMALLOC_LOCK_RELEASE(ak_as_ptr(m->MAP_LOCK));
             return (mem + 1);
         }
     }
@@ -309,13 +325,19 @@ static int ak_posix_memalign_from_state(ak_malloc_state* m, void** pmem, size_t 
  * Exported APIs
  ***********************************************/
 
+static int MALLOC_INIT = 0;
+static void* MALLOC_INIT_LOCK = AK_NULLPTR;
+static ak_malloc_state MALLOC_ROOT;
+
 AK_EXTERN_C_BEGIN
 
 void* ak_malloc(size_t sz)
 {
     if (ak_unlikely(!MALLOC_INIT)) {
+        AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(MALLOC_INIT_LOCK));
         ak_malloc_init_state(&MALLOC_ROOT);
         MALLOC_INIT = 1;
+        AKMALLOC_LOCK_RELEASE(ak_as_ptr(MALLOC_INIT_LOCK));
     }
     return ak_malloc_from_state(ak_as_ptr(MALLOC_ROOT), sz);
 }

@@ -33,4 +33,70 @@ For more information, please refer to <http://unlicense.org/>
 #ifndef AKMALLOC_ATOMIC_H
 #define AKMALLOC_ATOMIC_H
 
+#include "akmalloc/config.h"
+#include "akmalloc/constants.h"
+#include "akmalloc/inline.h"
+
+#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) > 40100
+
+ak_inline static void* ak_atomic_cas_ptr(void* volatile* pptr, void* nv, void* ov)
+{
+    return __sync_val_compare_and_swap(pptr, ov, nv);
+}
+
+ak_inline static void ak_atomic_clear_ptr(void* volatile* pptr)
+{
+    __sync_lock_release(pptr);
+}
+
+#else
+
+#ifndef _M_AMD64
+/* These are already defined on AMD64 builds */
+AK_EXTERN_C_BEGIN
+
+PVOID __cdecl _InterlockedCompareExchangePointer(PVOID volatile* Dest, PVOID Exchange, PVOID Comp);
+PVOID __cdecl _InterlockedExchangePointer(PVOID volatile* Target, PVOID Value);
+
+AK_EXTERN_C_END
+
+#pragma intrinsic (_InterlockedCompareExchangePointer)
+#pragma intrinsic (_InterlockedExchangePointer)
+
+#endif /* _M_AMD64 */
+
+
+ak_inline static void* ak_atomic_cas_ptr(void* volatile* ptr, void* nv, void* ov)
+{
+    return _InterlockedCompareExchangePointer(ptr, nv, ov);
+}
+
+ak_inline static void ak_atomic_clear_ptr(void* volatile* pptr)
+{
+    _InterlockedExchangePointer(pptr, 0);
+}
+
+#endif
+
+static void ak_atomic_spin_lock_acquire(void* volatile* pptr)
+{
+    // static const SPINS_PER_YIELD = 127;
+    // int spins = 0;
+    void* prev = AK_NULLPTR;
+    void* newv = (void*)AK_SZ_ONE;
+    if (*pptr != newv) {
+        void* tmp = AK_NULLPTR;
+        while ((tmp = ak_atomic_cas_ptr(pptr, newv, prev))) {
+            if (((*pptr) == newv) && (tmp == prev)) {
+                break;
+            }
+        }
+    }
+}
+
+static void ak_atomic_spin_lock_release(void* volatile* pptr)
+{
+    ak_atomic_clear_ptr(pptr);
+}
+
 #endif/*AKMALLOC_ATOMIC_H*/
