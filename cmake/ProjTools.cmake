@@ -80,6 +80,19 @@ if(NOT PROJ_NAME)
   projerr("PROJ_NAME not defined.")
 endif()
 
+macro(initvar nm)
+  if (NOT ${nm})
+    # try to check the environment
+    set(${nm} $ENV{${nm}})
+  endif()
+
+  if (NOT ${nm})
+    set(${nm} 0 CACHE BOOL "internal variable")
+  else()
+    set(${nm} 1 CACHE BOOL "internal variable")
+  endif()
+endmacro(initvar)
+
 # -- Get the folder containing the project
 get_filename_component(PROJ_BASE_DIR_TMP ${CMAKE_CURRENT_SOURCE_DIR} PATH)
 set(PROJ_BASE_DIR ${PROJ_BASE_DIR_TMP} CACHE INTERNAL "Base dir" FORCE)
@@ -166,7 +179,15 @@ else()
 endif()
 
 # -- Code coverage defines
-if ((UNIX OR APPLE) AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
+initvar(USE_CODE_COV)
+if (NOT USE_CODE_COV)
+  string(COMPARE EQUAL "$ENV{USE_CODE_COV}" "" is_code_cov_unspec)
+  if (is_code_cov_unspec)
+    set(USE_CODE_COV 1)
+  endif()
+endif()
+
+if ((UNIX OR APPLE) AND USE_CODE_COV)
   set(USE_CODE_COV 1)
   file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/coverage)
 else()
@@ -661,19 +682,6 @@ function(create_test testname)
     install_tgt(${testname})
   endif()
 endfunction(create_test)
-
-macro(initvar nm)
-  if (NOT ${nm})
-    # try to check the environment
-    set(${nm} $ENV{${nm}})
-  endif()
-
-  if (NOT ${nm})
-    set(${nm} 0 CACHE BOOL "internal variable")
-  else()
-    set(${nm} 1 CACHE BOOL "internal variable")
-  endif()
-endmacro(initvar)
 
 # -- GENERATE CODE COVERAGE REPORT
 if(USE_CODE_COV)

@@ -74,8 +74,8 @@ struct ak_slab_root_tag
 };
 
 #if defined(AK_SLAB_USE_LOCKS)
-#  define AK_SLAB_LOCK_ACQUIRE(root) ak_atomic_spin_lock_acquire(ak_as_ptr((root)->LOCKED))
-#  define AK_SLAB_LOCK_RELEASE(root) ak_atomic_spin_lock_release(ak_as_ptr((root)->LOCKED))
+#  define AK_SLAB_LOCK_ACQUIRE(root) ak_atomic_spin_lock_acquire(ak_as_ptr((root)->LOCKED)); AKMALLOC_ASSERT((root)->LOCKED)
+#  define AK_SLAB_LOCK_RELEASE(root) AKMALLOC_ASSERT((root)->LOCKED); ak_atomic_spin_lock_release(ak_as_ptr((root)->LOCKED))
 #else
 #  define AK_SLAB_LOCK_ACQUIRE(root)
 #  define AK_SLAB_LOCK_RELEASE(root)
@@ -325,7 +325,7 @@ static void* ak_slab_alloc(ak_slab_root* root)
     ak_slab* slab = AK_NULLPTR;
     const ak_sz sz = root->sz;
 
-    ak_atomic_spin_lock_acquire(ak_as_ptr(root->LOCKED));
+    AK_SLAB_LOCK_ACQUIRE(root);
 
     void* mem = ak_slab_search(&(root->partial_root), sz, root->navail, &slab, &ntz);
 
@@ -341,7 +341,7 @@ static void* ak_slab_alloc(ak_slab_root* root)
         ak_slab_link(slab, root->full_root.fd, &(root->full_root));
     }
 
-    ak_atomic_spin_lock_release(ak_as_ptr(root->LOCKED));
+    AK_SLAB_LOCK_RELEASE(root);
 
     return mem;
 }
@@ -356,7 +356,7 @@ static void ak_slab_free(void* p)
 
     ak_slab_root* root = slab->root;
 
-    ak_atomic_spin_lock_acquire(ak_as_ptr(root->LOCKED));
+    AK_SLAB_LOCK_ACQUIRE(root);
 
     int movetopartial = ak_slab_none_free(slab);
     const ak_sz sz = root->sz;
@@ -379,18 +379,18 @@ static void ak_slab_free(void* p)
         }
     }
 
-    ak_atomic_spin_lock_release(ak_as_ptr(root->LOCKED));
+    AK_SLAB_LOCK_RELEASE(root);
 }
 
 static void ak_slab_destroy(ak_slab_root* root)
 {
-    ak_atomic_spin_lock_acquire(ak_as_ptr(root->LOCKED));
+    AK_SLAB_LOCK_ACQUIRE(root);
     ak_slab_release_pages(root, &(root->empty_root), AK_U32_MAX);
     ak_slab_release_pages(root, &(root->partial_root), AK_U32_MAX);
     ak_slab_release_pages(root, &(root->full_root), AK_U32_MAX);
     root->nempty = 0;
     root->release = 0;
-    ak_atomic_spin_lock_release(ak_as_ptr(root->LOCKED));
+    AK_SLAB_LOCK_RELEASE(root);
 }
 
 #endif/*AKMALLOC_SLAB_H*/

@@ -33,6 +33,7 @@ For more information, please refer to <http://unlicense.org/>
 #ifndef AKMALLOC_ATOMIC_H
 #define AKMALLOC_ATOMIC_H
 
+#include "akmalloc/assert.h"
 #include "akmalloc/config.h"
 #include "akmalloc/constants.h"
 #include "akmalloc/inline.h"
@@ -78,6 +79,7 @@ static void ak_atomic_spin_lock_acquire(ak_atomic_void_ptr* pptr)
     ak_u32 spins = 0;
     void* prev = AK_NULLPTR;
     void* newv = (void*)AK_SZ_ONE;
+    AKMALLOC_ASSERT(((ak_sz)pptr) % sizeof(ak_sz) == 0);
     if (!ak_atomic_cas_ptr(pptr, newv, prev)) {
         while (!ak_atomic_cas_ptr(pptr, newv, prev)) {
             if ((++spins & SPINS_PER_YIELD) == 0) {
@@ -85,6 +87,7 @@ static void ak_atomic_spin_lock_acquire(ak_atomic_void_ptr* pptr)
             }
         }
     }
+    AKMALLOC_ASSERT(*pptr == newv);
 }
 
 static void ak_atomic_spin_lock_release(ak_atomic_void_ptr* pptr)
@@ -93,6 +96,8 @@ static void ak_atomic_spin_lock_release(ak_atomic_void_ptr* pptr)
     ak_u32 spins = 0;
     void* prev = (void*)AK_SZ_ONE;
     void* newv = AK_NULLPTR;
+    AKMALLOC_ASSERT(((ak_sz)pptr) % sizeof(ak_sz) == 0);
+    AKMALLOC_ASSERT(*pptr == prev);
     if (!ak_atomic_cas_ptr(pptr, newv, prev)) {
         while (!ak_atomic_cas_ptr(pptr, newv, prev)) {
             if ((++spins & SPINS_PER_YIELD) == 0) {

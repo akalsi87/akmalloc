@@ -37,12 +37,16 @@ For more information, please refer to <http://unlicense.org/>
 #define AKMALLOC_MINOR_VER    @akmalloc_minor@
 #define AKMALLOC_PATCH_VER    @akmalloc_patch@
 
-#if @AKMALLOC_LINK_STATIC@
-#  define AKMALLOC_LINK_STATIC
+#if !defined(AKMALLOC_LINK_STATIC)
+#  if @AKMALLOC_LINK_STATIC@
+#    define AKMALLOC_LINK_STATIC
+#  endif
 #endif
 
-#if @AKMALLOC_INCLUDE_ONLY@
-#  define AKMALLOC_INCLUDE_ONLY
+#if !defined(AKMALLOC_INCLUDE_ONLY)
+#  if @AKMALLOC_INCLUDE_ONLY@
+#    define AKMALLOC_INCLUDE_ONLY
+#  endif
 #endif
 
 /*

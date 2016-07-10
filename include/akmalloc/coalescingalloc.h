@@ -58,8 +58,8 @@ For more information, please refer to <http://unlicense.org/>
 #endif
 
 #if defined(AK_CA_USE_LOCKS)
-#  define AK_CA_LOCK_ACQUIRE(root) ak_atomic_spin_lock_acquire(ak_as_ptr((root)->LOCKED))
-#  define AK_CA_LOCK_RELEASE(root) ak_atomic_spin_lock_release(ak_as_ptr((root)->LOCKED))
+#  define AK_CA_LOCK_ACQUIRE(root) ak_atomic_spin_lock_acquire(ak_as_ptr((root)->LOCKED)); AKMALLOC_ASSERT((root)->LOCKED)
+#  define AK_CA_LOCK_RELEASE(root) AKMALLOC_ASSERT((root)->LOCKED); ak_atomic_spin_lock_release(ak_as_ptr((root)->LOCKED))
 #else
 #  define AK_CA_LOCK_ACQUIRE(root)
 #  define AK_CA_LOCK_RELEASE(root)
