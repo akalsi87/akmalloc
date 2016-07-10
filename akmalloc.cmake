@@ -6,10 +6,6 @@ set(akmalloc_major 0)
 set(akmalloc_minor 1)
 set(akmalloc_patch 1)
 
-if (NOT AKMALLOC_LIBRARY)
-  set(AKMALLOC_LIBRARY 0)
-endif()
-
 set(xprt include/akmalloc)
 
 # create the configured rc file

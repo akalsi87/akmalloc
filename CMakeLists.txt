@@ -23,6 +23,37 @@ include("cmake/ProjTools.cmake")
 # -- Add the subdirectories
 set(PROJ_SUBDIRS  unittest; doc; tools; test)
 
+# -- initialize variables
+initvar(AKMALLOC_LIBRARY)
+initvar(AKMALLOC_LINK_STATIC)
+initvar(AKMALLOC_INCLUDE_ONLY)
+
+if (NOT AKMALLOC_LIBRARY)
+  if (NOT AKMALLOC_LINK_STATIC)
+    if (NOT AKMALLOC_INCLUDE_ONLY)
+      set(AKMALLOC_LIBRARY 1 CACHE BOOL "Internal variable")
+    endif()
+  endif()
+endif()
+
+if (AKMALLOC_LIBRARY)
+  if (AKMALLOC_INCLUDE_ONLY OR AKMALLOC_LINK_STATIC)
+    projerr("Conflicting project configurations.")
+  endif()
+endif()
+
+if (AKMALLOC_INCLUDE_ONLY)
+  if (AKMALLOC_LIBRARY OR AKMALLOC_LINK_STATIC)
+    projerr("Conflicting project configurations.")
+  endif()
+endif()
+
+if (AKMALLOC_LINK_STATIC)
+  if (AKMALLOC_LIBRARY OR AKMALLOC_INCLUDE_ONLY)
+    projerr("Conflicting project configurations.")
+  endif()
+endif()
+
 # add all subdirs
 foreach(subdir ${PROJ_SUBDIRS})
   add_subdirectory(${subdir})

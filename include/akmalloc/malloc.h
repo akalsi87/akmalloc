@@ -36,6 +36,7 @@ For more information, please refer to <http://unlicense.org/>
 /* We only include this to get size_t */
 #include <stddef.h>
 
+#include "akmalloc/rc.h"
 #include "akmalloc/types.h"
 
 #if !defined(AKMALLOC_USE_PREFIX) || !AKMALLOC_USE_PREFIX
@@ -50,8 +51,12 @@ For more information, please refer to <http://unlicense.org/>
 #endif
 
 #if !defined(AKMALLOC_EXPORT)
-#  include "akmalloc/exportsym.h"
-#  define AKMALLOC_EXPORT AKMALLOC_API
+#  if !defined(AKMALLOC_INCLUDE_ONLY)
+#    include "akmalloc/exportsym.h"
+#    define AKMALLOC_EXPORT AKMALLOC_API
+#  else
+#    define AKMALLOC_EXPORT
+#  endif
 #endif
 
 AK_EXTERN_C_BEGIN
@@ -68,7 +73,7 @@ AKMALLOC_EXPORT int    ak_posix_memalign(void**, size_t, size_t);
 
 AK_EXTERN_C_END
 
-#if defined(AKMALLOC_LINK_STATIC)
+#if defined(AKMALLOC_LINK_STATIC) || defined(AKMALLOC_INCLUDE_ONLY)
 #  include "akmalloc/malloc.c"
 #endif
 

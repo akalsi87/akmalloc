@@ -662,6 +662,19 @@ function(create_test testname)
   endif()
 endfunction(create_test)
 
+macro(initvar nm)
+  if (NOT ${nm})
+    # try to check the environment
+    set(${nm} $ENV{${nm}})
+  endif()
+
+  if (NOT ${nm})
+    set(${nm} 0 CACHE BOOL "internal variable")
+  else()
+    set(${nm} 1 CACHE BOOL "internal variable")
+  endif()
+endmacro(initvar)
+
 # -- GENERATE CODE COVERAGE REPORT
 if(USE_CODE_COV)
   if (WIN32)

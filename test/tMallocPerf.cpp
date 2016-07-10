@@ -371,15 +371,15 @@ void AllocDeallocTask()
 
 CPP_TEST( multiThreadedAllocTask )
 {
-    const size_t nthreads = std::thread::hardware_concurrency();
+    // const size_t nthreads = std::thread::hardware_concurrency();
 
-    std::vector<std::thread> threads(nthreads);
-    for (size_t i = 0; i < nthreads; ++i) {
-        std::thread newt(AllocDeallocTask);
-        threads[i].swap(newt);
-    }
+    // std::vector<std::thread> threads(nthreads);
+    // for (size_t i = 0; i < nthreads; ++i) {
+    //     std::thread newt(AllocDeallocTask);
+    //     threads[i].swap(newt);
+    // }
 
-    for (size_t i = 0; i < nthreads; ++i) {
-        threads[i].join();
-    }
+    // for (size_t i = 0; i < nthreads; ++i) {
+    //     threads[i].join();
+    // }
 }

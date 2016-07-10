@@ -128,7 +128,7 @@ For more information, please refer to <http://unlicense.org/>
 
 #if defined(__cplusplus)
 #  define AK_EXTERN_C_BEGIN extern "C"  {
-#  define AK_EXTERN_C_END   }
+#  define AK_EXTERN_C_END   }/*extern C*/
 #else
 #  define AK_EXTERN_C_BEGIN
 #  define AK_EXTERN_C_END  

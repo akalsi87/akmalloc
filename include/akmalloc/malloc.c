@@ -55,8 +55,8 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/coalescingalloc.h"
 #include "akmalloc/setup.h"
 
-#if !defined(AKMALLOC_LINK_STATIC)
-#include "akmalloc/malloc.h"
+#if !defined(AKMALLOC_LINK_STATIC) && !defined(AKMALLOC_INCLUDE_ONLY)
+#  include "akmalloc/malloc.h"
 #endif
 
 static void* ak_memset(void* m, int v, ak_sz sz)
@@ -141,7 +141,7 @@ static void ak_malloc_init_state(ak_malloc_state* s)
         ak_slab_init_root_default(ak_as_ptr(s->slabs[i]), SLAB_SIZES[i]);
     }
     ak_ca_init_root_default(ak_as_ptr(s->casmall));
-    s->casmall.MIN_SIZE_TO_SPLIT = MAX_SMALL_REQUEST;
+    s->casmall.MIN_SIZE_TO_SPLIT = MAX_SMALL_REQUEST - 1;
 
     ak_ca_init_root_default(ak_as_ptr(s->camedium));
     s->camedium.MIN_SIZE_TO_SPLIT = MIN_MEDIUM_REQUEST;
@@ -197,7 +197,6 @@ static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
         } else {
             mem = (ak_sz*)ak_ca_alloc(ak_as_ptr(m->calarge), sz);
         }
-        AKMALLOC_ASSERT(alnsz <= ak_ca_to_sz((((ak_alloc_node*)mem)-1)->currinfo));
         if (ak_likely(mem)) {
             ak_alloc_mark_coalesce(mem);
             AKMALLOC_ASSERT(ak_alloc_type_coalesce(ak_alloc_type_bits(mem)));
