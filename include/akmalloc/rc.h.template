@@ -52,7 +52,9 @@ For more information, please refer to <http://unlicense.org/>
 /*
  * Revision history:
  *
- * 0.0.1: Initial commit
+ * (July 10, 2016)  0.1.1: Functioning single threaded malloc.
+ *
+ * (March 11, 2016) 0.0.1: Initial commit
  */
 
 #endif/*AKMALLOC_RC_H*/
