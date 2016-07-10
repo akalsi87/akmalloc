@@ -3,7 +3,7 @@
 
 # update the rc.h.template file when the version is bumped
 set(akmalloc_major 0)
-set(akmalloc_minor 0)
+set(akmalloc_minor 1)
 set(akmalloc_patch 1)
 
 if (NOT AKMALLOC_LIBRARY)
@@ -48,9 +48,9 @@ if (AKMALLOC_LIBRARY)
   add_lib(akmalloc SHARED ${akmalloc_impl})
   add_lib_build_def(akmalloc include/akmalloc/exportsym.h AKMALLOC)
   link_libs(akmalloc )
+  add_comp_def(akmalloc -DAKMALLOC_USE_PREFIX=1)
   if (is_msvc)
-    projmsg("Cannot build this project as a library on Windows overriding default names. Using AKMALLOC_USE_PREFIX")
-    add_comp_def(akmalloc -DAKMALLOC_USE_PREFIX=1)
+    #projmsg("Cannot build this project as a library on Windows overriding default names. Using AKMALLOC_USE_PREFIX")
   else()
     add_comp_flag(akmalloc "-Wno-unused-function")
   endif()

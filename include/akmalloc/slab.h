@@ -70,7 +70,7 @@ struct ak_slab_root_tag
 
     ak_u32 RELEASE_RATE;
     ak_u32 MAX_PAGES_TO_FREE;
-    void*  LOCKED;
+    ak_atomic_void_ptr LOCKED;
 };
 
 #if defined(AK_SLAB_USE_LOCKS)
@@ -334,7 +334,7 @@ static void* ak_slab_alloc(ak_slab_root* root)
         if (ak_likely(slab)) {
             AKMALLOC_ASSERT(ak_bitset512_get(&(slab->avail), 0));
             ak_bitset512_clear(&(slab->avail), 0);
-            return ak_slab_2_mem(slab);
+            mem = ak_slab_2_mem(slab);
         }
     } else if (ak_unlikely(ntz == 512)) {
         ak_slab_unlink(slab);
@@ -384,11 +384,13 @@ static void ak_slab_free(void* p)
 
 static void ak_slab_destroy(ak_slab_root* root)
 {
+    ak_atomic_spin_lock_acquire(ak_as_ptr(root->LOCKED));
     ak_slab_release_pages(root, &(root->empty_root), AK_U32_MAX);
     ak_slab_release_pages(root, &(root->partial_root), AK_U32_MAX);
     ak_slab_release_pages(root, &(root->full_root), AK_U32_MAX);
     root->nempty = 0;
     root->release = 0;
+    ak_atomic_spin_lock_release(ak_as_ptr(root->LOCKED));
 }
 
 #endif/*AKMALLOC_SLAB_H*/

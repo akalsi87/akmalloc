@@ -34,6 +34,7 @@ For more information, please refer to <http://unlicense.org/>
 #define AKMALLOC_COALESCING_ALLOC_H
 
 #include "akmalloc/assert.h"
+#include "akmalloc/atomic.h"
 #include "akmalloc/inline.h"
 #include "akmalloc/constants.h"
 #include "akmalloc/setup.h"
@@ -54,6 +55,14 @@ For more information, please refer to <http://unlicense.org/>
 #if !defined(AK_COALESCE_SEGMENT_SIZE)
 /* 64KB */
 #  define AK_COALESCE_SEGMENT_SIZE AK_COALESCE_SEGMENT_GRANULARITY
+#endif
+
+#if defined(AK_CA_USE_LOCKS)
+#  define AK_CA_LOCK_ACQUIRE(root) ak_atomic_spin_lock_acquire(ak_as_ptr((root)->LOCKED))
+#  define AK_CA_LOCK_RELEASE(root) ak_atomic_spin_lock_release(ak_as_ptr((root)->LOCKED))
+#else
+#  define AK_CA_LOCK_ACQUIRE(root)
+#  define AK_CA_LOCK_RELEASE(root)
 #endif
 
 typedef ak_sz ak_alloc_info;
@@ -102,6 +111,9 @@ struct ak_ca_root_tag
 
     ak_u32 RELEASE_RATE;
     ak_u32 MAX_SEGMENTS_TO_FREE;
+    ak_sz MIN_SIZE_TO_SPLIT;
+
+    ak_atomic_void_ptr LOCKED;
 };
 
 /**************************************************************/
@@ -235,7 +247,7 @@ ak_inline static void ak_ca_update_footer(ak_alloc_node* p)
 
 #define ak_ca_aligned_segment_size(x) (((x) + (AK_COALESCE_SEGMENT_SIZE) - 1) & ~((AK_COALESCE_SEGMENT_SIZE) - 1))
 
-static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz)
+static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz, ak_sz splitsz)
 {
     // walk through list finding the first element that fits and split
     ak_circ_list_for_each(ak_free_list_node, node, root) {
@@ -243,7 +255,7 @@ static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz)
         AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
         ak_sz nodesz = ak_ca_to_sz(n->currinfo);
         if (nodesz >= sz) {
-            if ((nodesz - sz) > (sizeof(ak_alloc_node) + sizeof(ak_free_list_node))) {
+            if ((nodesz - sz) > splitsz) {
                 // split and assign
                 ak_alloc_node* newnode = (ak_alloc_node*)(((char*)node) + sz);
                 int islast = ak_ca_is_last(n->currinfo);
@@ -355,14 +367,16 @@ static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofr
 
     root->RELEASE_RATE = relrate;
     root->MAX_SEGMENTS_TO_FREE = maxsegstofree;
+    root->MIN_SIZE_TO_SPLIT = (sizeof(ak_alloc_node) + sizeof(ak_free_list_node));
+    root->LOCKED = AK_NULLPTR;
 }
 
 ak_inline static void ak_ca_init_root_default(ak_ca_root* root)
 {
 #if AKMALLOC_BITNESS == 32
-    static const ak_u32 rate =  128;
+    static const ak_u32 rate =  255;
 #else
-    static const ak_u32 rate = 1024;
+    static const ak_u32 rate = 2047;
 #endif
     ak_ca_init_root(root, rate, rate);
 }
@@ -371,16 +385,19 @@ static void* ak_ca_alloc(ak_ca_root* root, ak_sz s)
 {
     // align and round size
     ak_sz sz = ak_ca_aligned_size(s);
+    AK_CA_LOCK_ACQUIRE(root);
     // search free list
-    void* mem = ak_ca_search_free_list(ak_as_ptr(root->free_root), sz);
+    ak_sz splitsz = root->MIN_SIZE_TO_SPLIT;
+    void* mem = ak_ca_search_free_list(ak_as_ptr(root->free_root), sz, splitsz);
     // add new segment
     if (ak_unlikely(!mem)) {
         // NOTE: could also move segments from empty_root to main_root
         if (ak_likely(ak_ca_get_new_segment(root, sz))) {
-            mem = ak_ca_search_free_list(ak_as_ptr(root->free_root), sz);
+            mem = ak_ca_search_free_list(ak_as_ptr(root->free_root), sz, splitsz);
             AKMALLOC_ASSERT(mem);
         }
     }
+    AK_CA_LOCK_RELEASE(root);
     return mem;
 }
 
@@ -388,6 +405,9 @@ static void ak_ca_free(ak_ca_root* root, void* m)
 {
     // get alloc header before
     ak_alloc_node* node = ((ak_alloc_node*)m) - 1;
+
+    AK_CA_LOCK_ACQUIRE(root);
+
     ak_alloc_node* nextnode = ak_ca_next_node(node);
     ak_alloc_node* prevnode = ak_ca_prev_node(node);
     int coalesce = 0;
@@ -479,13 +499,17 @@ static void ak_ca_free(ak_ca_root* root, void* m)
             root->release = 0;
         }
     }
+
+    AK_CA_LOCK_RELEASE(root);
 }
 
 static void ak_ca_destroy(ak_ca_root* root)
 {
+    AK_CA_LOCK_ACQUIRE(root);
     ak_ca_return_os_mem(ak_as_ptr(root->main_root), AK_U32_MAX);
     ak_ca_return_os_mem(ak_as_ptr(root->empty_root), AK_U32_MAX);
     root->nempty = root->release = 0;
+    AK_CA_LOCK_RELEASE(root);
 }
 
 #endif/*AKMALLOC_COALESCING_ALLOC_H*/

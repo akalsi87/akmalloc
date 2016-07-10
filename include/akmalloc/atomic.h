@@ -37,16 +37,13 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/constants.h"
 #include "akmalloc/inline.h"
 
-#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) > 40100
+typedef void* ak_atomic_void_ptr;
 
-ak_inline static void* ak_atomic_cas_ptr(void* volatile* pptr, void* nv, void* ov)
-{
-    return __sync_val_compare_and_swap(pptr, ov, nv);
-}
+#if !AKMALLOC_MSVC && (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) > 40100
 
-ak_inline static void ak_atomic_clear_ptr(void* volatile* pptr)
+ak_inline static int ak_atomic_cas_ptr(ak_atomic_void_ptr* pptr, void* nv, void* ov)
 {
-    __sync_lock_release(pptr);
+    return __sync_bool_compare_and_swap(pptr, ov, nv);
 }
 
 #else
@@ -56,47 +53,88 @@ ak_inline static void ak_atomic_clear_ptr(void* volatile* pptr)
 AK_EXTERN_C_BEGIN
 
 PVOID __cdecl _InterlockedCompareExchangePointer(PVOID volatile* Dest, PVOID Exchange, PVOID Comp);
-PVOID __cdecl _InterlockedExchangePointer(PVOID volatile* Target, PVOID Value);
 
 AK_EXTERN_C_END
 
 #pragma intrinsic (_InterlockedCompareExchangePointer)
-#pragma intrinsic (_InterlockedExchangePointer)
 
 #endif /* _M_AMD64 */
 
 
-ak_inline static void* ak_atomic_cas_ptr(void* volatile* ptr, void* nv, void* ov)
+ak_inline static int ak_atomic_cas_ptr(void* volatile* ptr, void* nv, void* ov)
 {
-    return _InterlockedCompareExchangePointer(ptr, nv, ov);
-}
-
-ak_inline static void ak_atomic_clear_ptr(void* volatile* pptr)
-{
-    _InterlockedExchangePointer(pptr, 0);
+    return _InterlockedCompareExchangePointer(ptr, nv, ov) == ov;
 }
 
 #endif
 
-static void ak_atomic_spin_lock_acquire(void* volatile* pptr)
+static void ak_os_sleep(ak_u32 micros);
+
+static void ak_spin_lock_yield();
+
+static void ak_atomic_spin_lock_acquire(ak_atomic_void_ptr* pptr)
 {
-    // static const SPINS_PER_YIELD = 127;
-    // int spins = 0;
+    static const ak_u32 SPINS_PER_YIELD = 15;
+    ak_u32 spins = 0;
     void* prev = AK_NULLPTR;
     void* newv = (void*)AK_SZ_ONE;
-    if (*pptr != newv) {
-        void* tmp = AK_NULLPTR;
-        while ((tmp = ak_atomic_cas_ptr(pptr, newv, prev))) {
-            if (((*pptr) == newv) && (tmp == prev)) {
-                break;
+    if (!ak_atomic_cas_ptr(pptr, newv, prev)) {
+        while (!ak_atomic_cas_ptr(pptr, newv, prev)) {
+            if ((++spins & SPINS_PER_YIELD) == 0) {
+                ak_spin_lock_yield();
             }
         }
     }
 }
 
-static void ak_atomic_spin_lock_release(void* volatile* pptr)
+static void ak_atomic_spin_lock_release(ak_atomic_void_ptr* pptr)
 {
-    ak_atomic_clear_ptr(pptr);
+    static const ak_u32 SPINS_PER_YIELD = 15;
+    ak_u32 spins = 0;
+    void* prev = (void*)AK_SZ_ONE;
+    void* newv = AK_NULLPTR;
+    if (!ak_atomic_cas_ptr(pptr, newv, prev)) {
+        while (!ak_atomic_cas_ptr(pptr, newv, prev)) {
+            if ((++spins & SPINS_PER_YIELD) == 0) {
+                ak_spin_lock_yield();
+            }
+        }
+    }
 }
+
+#if AKMALLOC_WINDOWS
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <Windows.h>
+
+static void ak_os_sleep(ak_u32 micros)
+{
+    const ak_u32 millis = micros/1000;
+    SleepEx(millis ? millis : 1, FALSE);
+}
+
+static void ak_spin_lock_yield()
+{
+    // obtained from dlmalloc
+    SleepEx(50, FALSE);
+}
+
+#else
+
+#include <sched.h>
+#include <unistd.h>
+
+static void ak_os_sleep(ak_u32 micros)
+{
+    usleep(micros);
+}
+
+static void ak_spin_lock_yield()
+{
+    sched_yield();
+}
+
+#endif
 
 #endif/*AKMALLOC_ATOMIC_H*/
