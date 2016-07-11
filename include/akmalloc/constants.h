@@ -55,4 +55,6 @@ For more information, please refer to <http://unlicense.org/>
 #  define AKMALLOC_CACHE_LINE_LENGTH 64
 #endif
 
+#define ak_as_ptr(x) (&(x))
+
 #endif/*AKMALLOC_CONSTANTS_H*/

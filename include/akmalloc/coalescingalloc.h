@@ -34,7 +34,7 @@ For more information, please refer to <http://unlicense.org/>
 #define AKMALLOC_COALESCING_ALLOC_H
 
 #include "akmalloc/assert.h"
-#include "akmalloc/atomic.h"
+#include "akmalloc/spinlock.h"
 #include "akmalloc/inline.h"
 #include "akmalloc/constants.h"
 #include "akmalloc/setup.h"
@@ -58,9 +58,11 @@ For more information, please refer to <http://unlicense.org/>
 #endif
 
 #if defined(AK_CA_USE_LOCKS)
-#  define AK_CA_LOCK_ACQUIRE(root) ak_atomic_spin_lock_acquire(ak_as_ptr((root)->LOCKED)); AKMALLOC_ASSERT((root)->LOCKED)
-#  define AK_CA_LOCK_RELEASE(root) AKMALLOC_ASSERT((root)->LOCKED); ak_atomic_spin_lock_release(ak_as_ptr((root)->LOCKED))
+#  define AK_CA_LOCK_INIT(root)    ak_spinlock_init(ak_as_ptr((root)->LOCKED))
+#  define AK_CA_LOCK_ACQUIRE(root) ak_spinlock_acquire(ak_as_ptr((root)->LOCKED))
+#  define AK_CA_LOCK_RELEASE(root) ak_spinlock_release(ak_as_ptr((root)->LOCKED))
 #else
+#  define AK_CA_LOCK_INIT(root)
 #  define AK_CA_LOCK_ACQUIRE(root)
 #  define AK_CA_LOCK_RELEASE(root)
 #endif
@@ -113,7 +115,7 @@ struct ak_ca_root_tag
     ak_u32 MAX_SEGMENTS_TO_FREE;
     ak_sz MIN_SIZE_TO_SPLIT;
 
-    ak_atomic_void_ptr LOCKED;
+    ak_spinlock LOCKED;
 };
 
 /**************************************************************/
@@ -368,7 +370,7 @@ static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofr
     root->RELEASE_RATE = relrate;
     root->MAX_SEGMENTS_TO_FREE = maxsegstofree;
     root->MIN_SIZE_TO_SPLIT = (sizeof(ak_alloc_node) + sizeof(ak_free_list_node));
-    root->LOCKED = AK_NULLPTR;
+    AK_CA_LOCK_INIT(root);
 }
 
 ak_inline static void ak_ca_init_root_default(ak_ca_root* root)
@@ -505,11 +507,9 @@ static void ak_ca_free(ak_ca_root* root, void* m)
 
 static void ak_ca_destroy(ak_ca_root* root)
 {
-    AK_CA_LOCK_ACQUIRE(root);
     ak_ca_return_os_mem(ak_as_ptr(root->main_root), AK_U32_MAX);
     ak_ca_return_os_mem(ak_as_ptr(root->empty_root), AK_U32_MAX);
     root->nempty = root->release = 0;
-    AK_CA_LOCK_RELEASE(root);
 }
 
 #endif/*AKMALLOC_COALESCING_ALLOC_H*/

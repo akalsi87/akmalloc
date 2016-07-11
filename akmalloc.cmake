@@ -23,7 +23,6 @@ set(akmalloc_impl
 # export
 set(akmalloc_exp_hdr
     ${xprt}/assert.h;
-    ${xprt}/atomic.h;
     ${xprt}/coalescingalloc.h;
     ${xprt}/config.h;
     ${xprt}/constants.h;
@@ -36,6 +35,7 @@ set(akmalloc_exp_hdr
     ${xprt}/utils.h;
     ${xprt}/setup.h;
     ${xprt}/slab.h;
+    ${xprt}/spinlock.h;
     ${xprt}/rc.h;
     )
 

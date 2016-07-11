@@ -26,85 +26,76 @@ For more information, please refer to <http://unlicense.org/>
 */
 
 /**
- * \file atomic.h
+ * \file spinlock.h
  * \date Mar 01, 2016
  */
 
-#ifndef AKMALLOC_ATOMIC_H
-#define AKMALLOC_ATOMIC_H
+#ifndef AKMALLOC_SPINLOCK_H
+#define AKMALLOC_SPINLOCK_H
 
 #include "akmalloc/assert.h"
 #include "akmalloc/config.h"
 #include "akmalloc/constants.h"
 #include "akmalloc/inline.h"
 
-typedef void* ak_atomic_void_ptr;
+typedef struct ak_spinlock_tag ak_spinlock;
 
-#if !AKMALLOC_MSVC && (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) > 40100
-
-ak_inline static int ak_atomic_cas_ptr(ak_atomic_void_ptr* pptr, void* nv, void* ov)
+struct ak_spinlock_tag
 {
-    return __sync_bool_compare_and_swap(pptr, ov, nv);
-}
-
-#else
-
-#ifndef _M_AMD64
-/* These are already defined on AMD64 builds */
-AK_EXTERN_C_BEGIN
-
-PVOID __cdecl _InterlockedCompareExchangePointer(PVOID volatile* Dest, PVOID Exchange, PVOID Comp);
-
-AK_EXTERN_C_END
-
-#pragma intrinsic (_InterlockedCompareExchangePointer)
-
-#endif /* _M_AMD64 */
-
-
-ak_inline static int ak_atomic_cas_ptr(void* volatile* ptr, void* nv, void* ov)
-{
-    return _InterlockedCompareExchangePointer(ptr, nv, ov) == ov;
-}
-
-#endif
+    ak_u32 lockA;  
+};
 
 static void ak_os_sleep(ak_u32 micros);
 
-static void ak_spin_lock_yield();
+static void ak_spinlock_yield();
 
-static void ak_atomic_spin_lock_acquire(ak_atomic_void_ptr* pptr)
+#define ak_atomic_load(x) (*(volatile ak_u32*)(&(x)))
+
+#if !AKMALLOC_MSVC && (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) > 40100
+#  define ak_cas(px, nx, ox) __sync_bool_compare_and_swap((px), (ox), (nx))
+#else/* Windows */
+#  ifndef _M_AMD64
+     /* These are already defined on AMD64 builds */
+     AK_EXTERN_C_BEGIN
+     LONG __cdecl _InterlockedCompareExchange(LONG volatile* Target, LONG NewValue, LONG OldValue);
+     AK_EXTERN_C_END
+#    pragma intrinsic (_InterlockedCompareExchange)
+#  endif /* _M_AMD64 */
+#  define ak_cas(px, nx, ox) (_InterlockedCompareExchange((px), (nx), (ox)) == (ox))
+#endif/* Windows */
+
+ak_inline static int ak_spinlock_is_locked(ak_spinlock* p)
 {
-    static const ak_u32 SPINS_PER_YIELD = 15;
-    ak_u32 spins = 0;
-    void* prev = AK_NULLPTR;
-    void* newv = (void*)AK_SZ_ONE;
-    AKMALLOC_ASSERT(((ak_sz)pptr) % sizeof(ak_sz) == 0);
-    if (!ak_atomic_cas_ptr(pptr, newv, prev)) {
-        while (!ak_atomic_cas_ptr(pptr, newv, prev)) {
-            if ((++spins & SPINS_PER_YIELD) == 0) {
-                ak_spin_lock_yield();
-            }
-        }
-    }
-    AKMALLOC_ASSERT(*pptr == newv);
+    return ak_atomic_load(p->lockA);
 }
 
-static void ak_atomic_spin_lock_release(ak_atomic_void_ptr* pptr)
+ak_inline static void ak_spinlock_init(ak_spinlock* p)
 {
-    static const ak_u32 SPINS_PER_YIELD = 15;
+    p->lockA = 0;
+    AKMALLOC_ASSERT_ALWAYS(!ak_spinlock_is_locked(p));
+}
+
+ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
+{
+    static const ak_u32 SPINS_PER_YIELD = 31;
     ak_u32 spins = 0;
-    void* prev = (void*)AK_SZ_ONE;
-    void* newv = AK_NULLPTR;
-    AKMALLOC_ASSERT(((ak_sz)pptr) % sizeof(ak_sz) == 0);
-    AKMALLOC_ASSERT(*pptr == prev);
-    if (!ak_atomic_cas_ptr(pptr, newv, prev)) {
-        while (!ak_atomic_cas_ptr(pptr, newv, prev)) {
+
+    if (!ak_cas(&(p->lockA), 1, 0)) {
+        while (!ak_cas(&(p->lockA), 1, 0)) {
             if ((++spins & SPINS_PER_YIELD) == 0) {
-                ak_spin_lock_yield();
+                ak_spinlock_yield();
             }
         }
     }
+
+    AKMALLOC_ASSERT_ALWAYS(ak_spinlock_is_locked(p));
+}
+
+ak_inline static void ak_spinlock_release(ak_spinlock* p)
+{
+    AKMALLOC_ASSERT_ALWAYS(ak_spinlock_is_locked(p));
+    int rvA = ak_cas(&(p->lockA), 0, 1);
+    AKMALLOC_ASSERT_ALWAYS(rvA == 1);
 }
 
 #if AKMALLOC_WINDOWS
@@ -119,7 +110,7 @@ static void ak_os_sleep(ak_u32 micros)
     SleepEx(millis ? millis : 1, FALSE);
 }
 
-static void ak_spin_lock_yield()
+static void ak_spinlock_yield()
 {
     // obtained from dlmalloc
     SleepEx(50, FALSE);
@@ -135,11 +126,11 @@ static void ak_os_sleep(ak_u32 micros)
     usleep(micros);
 }
 
-static void ak_spin_lock_yield()
+static void ak_spinlock_yield()
 {
     sched_yield();
 }
 
 #endif
 
-#endif/*AKMALLOC_ATOMIC_H*/
+#endif/*AKMALLOC_SPINLOCK_H*/

@@ -40,7 +40,7 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/setup.h"
 #include "akmalloc/bitset.h"
 
-#include "akmalloc/atomic.h"
+#include "akmalloc/spinlock.h"
 
 typedef struct ak_slab_tag ak_slab;
 
@@ -70,13 +70,15 @@ struct ak_slab_root_tag
 
     ak_u32 RELEASE_RATE;
     ak_u32 MAX_PAGES_TO_FREE;
-    ak_atomic_void_ptr LOCKED;
+    ak_spinlock LOCKED;
 };
 
 #if defined(AK_SLAB_USE_LOCKS)
-#  define AK_SLAB_LOCK_ACQUIRE(root) ak_atomic_spin_lock_acquire(ak_as_ptr((root)->LOCKED)); AKMALLOC_ASSERT((root)->LOCKED)
-#  define AK_SLAB_LOCK_RELEASE(root) AKMALLOC_ASSERT((root)->LOCKED); ak_atomic_spin_lock_release(ak_as_ptr((root)->LOCKED))
+#  define AK_SLAB_LOCK_INIT(root)    ak_spinlock_init(ak_as_ptr((root)->LOCKED))
+#  define AK_SLAB_LOCK_ACQUIRE(root) ak_spinlock_acquire(ak_as_ptr((root)->LOCKED))
+#  define AK_SLAB_LOCK_RELEASE(root) ak_spinlock_release(ak_as_ptr((root)->LOCKED))
 #else
+#  define AK_SLAB_LOCK_INIT(root)
 #  define AK_SLAB_LOCK_ACQUIRE(root)
 #  define AK_SLAB_LOCK_RELEASE(root)
 #endif
@@ -311,7 +313,7 @@ static void ak_slab_init_root(ak_slab_root* s, ak_sz sz, ak_u32 npages, ak_u32 r
 
     s->RELEASE_RATE = relrate;
     s->MAX_PAGES_TO_FREE = maxpagefree;
-    s->LOCKED = AK_NULLPTR;
+    AK_SLAB_LOCK_INIT(s);
 }
 
 ak_inline static void ak_slab_init_root_default(ak_slab_root* s, ak_sz sz)
@@ -323,9 +325,9 @@ static void* ak_slab_alloc(ak_slab_root* root)
 {
     int ntz = 0;
     ak_slab* slab = AK_NULLPTR;
-    const ak_sz sz = root->sz;
 
     AK_SLAB_LOCK_ACQUIRE(root);
+    const ak_sz sz = root->sz;
 
     void* mem = ak_slab_search(&(root->partial_root), sz, root->navail, &slab, &ntz);
 
@@ -355,7 +357,6 @@ static void ak_slab_free(void* p)
     AKMALLOC_ASSERT(slab->root);
 
     ak_slab_root* root = slab->root;
-
     AK_SLAB_LOCK_ACQUIRE(root);
 
     int movetopartial = ak_slab_none_free(slab);
@@ -384,13 +385,11 @@ static void ak_slab_free(void* p)
 
 static void ak_slab_destroy(ak_slab_root* root)
 {
-    AK_SLAB_LOCK_ACQUIRE(root);
     ak_slab_release_pages(root, &(root->empty_root), AK_U32_MAX);
     ak_slab_release_pages(root, &(root->partial_root), AK_U32_MAX);
     ak_slab_release_pages(root, &(root->full_root), AK_U32_MAX);
     root->nempty = 0;
     root->release = 0;
-    AK_SLAB_LOCK_RELEASE(root);
 }
 
 #endif/*AKMALLOC_SLAB_H*/
