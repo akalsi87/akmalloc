@@ -304,12 +304,14 @@ CPP_TEST( allocRandomFreeMap )
 
 #include <thread>
 
+static const size_t nthreads = std::thread::hardware_concurrency();
+
 void AllocDeallocTask()
 {
-    static const ak_sz nptrs = 10000;
+    static const ak_sz nptrs = (10000 * nthreads) > 20000 ? 20000/nthreads : 10000;
  
-    void* p[nptrs] = { 0 };
-    size_t sizes[nptrs] = { 0 };
+    void* p[20000] = { 0 };
+    size_t sizes[20000] = { 0 };
 
     size_t sizemin =   0;
     size_t sizemax =   0;

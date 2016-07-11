@@ -249,7 +249,7 @@ ak_inline static void ak_ca_update_footer(ak_alloc_node* p)
     type* name = (list)->fd;                         \
     for(type* const iterroot = (list); name != iterroot; name = name->fd)
 
-#define ak_ca_aligned_size(x) (x) ? (((x) + AK_COALESCE_ALIGN - 1) & ~(AK_COALESCE_ALIGN - 1)) : AK_COALESCE_ALIGN
+#define ak_ca_aligned_size(x) ((x) ? (((x) + AK_COALESCE_ALIGN - 1) & ~(AK_COALESCE_ALIGN - 1)) : AK_COALESCE_ALIGN)
 
 #define ak_ca_aligned_segment_size(x) (((x) + (AK_COALESCE_SEGMENT_SIZE) - 1) & ~((AK_COALESCE_SEGMENT_SIZE) - 1))
 
