@@ -60,7 +60,10 @@ For more information, please refer to <http://unlicense.org/>
 #  endif
 #endif
 
-/* gets pointer to segment, and size of segment. return non-zero for early exit */
+/**
+ * gets pointer to segment, and size of segment.
+ * return non-zero to keep continuing
+ */
 typedef int(*ak_seg_cbk)(const void*, size_t);
 
 AK_EXTERN_C_BEGIN
