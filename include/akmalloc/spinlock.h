@@ -61,8 +61,8 @@ static void ak_spinlock_yield();
    AK_EXTERN_C_END
 #    pragma intrinsic (_InterlockedCompareExchange)
 #  endif /* _M_AMD64 */
-#  define ak_atomic_cas(px, nx, ox) (_InterlockedCompareExchange((px), (nx), (ox)) == (ox))
-#  define ak_atomic_xchg(px, nx) _InterlockedExchange((px), (nx))
+#  define ak_atomic_cas(px, nx, ox) (_InterlockedCompareExchange((volatile long*)(px), (nx), (ox)) == (ox))
+#  define ak_atomic_xchg(px, nx) _InterlockedExchange((volatile long*)(px), (nx))
 #endif/* Windows */
 
 ak_inline static int ak_spinlock_is_locked(ak_spinlock* p)
