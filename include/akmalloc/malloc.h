@@ -40,14 +40,15 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/types.h"
 
 #if !defined(AKMALLOC_USE_PREFIX) || !AKMALLOC_USE_PREFIX
-#  define ak_malloc              malloc
-#  define ak_calloc              calloc
-#  define ak_free                free
-#  define ak_aligned_alloc       aligned_alloc
-#  define ak_posix_memalign      posix_memalign
-#  define ak_memalign            memalign
-#  define ak_realloc             realloc
-#  define ak_malloc_usable_size  malloc_usable_size
+#  define ak_malloc                   malloc
+#  define ak_calloc                   calloc
+#  define ak_free                     free
+#  define ak_aligned_alloc            aligned_alloc
+#  define ak_posix_memalign           posix_memalign
+#  define ak_memalign                 memalign
+#  define ak_realloc                  realloc
+#  define ak_malloc_usable_size       malloc_usable_size
+#  define ak_malloc_for_each_segment  malloc_for_each_segment
 #endif
 
 #if !defined(AKMALLOC_EXPORT)
@@ -58,6 +59,9 @@ For more information, please refer to <http://unlicense.org/>
 #    define AKMALLOC_EXPORT
 #  endif
 #endif
+
+/* gets pointer to segment, and size of segment. return non-zero for early exit */
+typedef int(*ak_seg_cbk)(const void*, size_t);
 
 AK_EXTERN_C_BEGIN
 
@@ -70,6 +74,8 @@ AKMALLOC_EXPORT size_t ak_malloc_usable_size(const void*);
 
 AKMALLOC_EXPORT void*  ak_aligned_alloc(size_t, size_t);
 AKMALLOC_EXPORT int    ak_posix_memalign(void**, size_t, size_t);
+
+AKMALLOC_EXPORT void   ak_malloc_for_each_segment(ak_seg_cbk);
 
 AK_EXTERN_C_END
 

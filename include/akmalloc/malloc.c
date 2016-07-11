@@ -381,6 +381,54 @@ static int ak_posix_memalign_from_state(ak_malloc_state* m, void** pmem, size_t 
     return 0;
 }
 
+void ak_malloc_for_each_segment_in_state(ak_malloc_state* m, ak_seg_cbk cbk)
+{
+    // for each slab, reclaim empty pages
+    for (ak_sz i = 0; i < NSLABS; ++i) {
+        ak_slab_root* s = ak_as_ptr(m->slabs[i]);
+        ak_circ_list_for_each(ak_slab, fslab, &(s->full_root)) {
+            if (!cbk(fslab, AKMALLOC_DEFAULT_PAGE_SIZE)) {
+                return;
+            }
+        }
+        ak_circ_list_for_each(ak_slab, pslab, &(s->partial_root)) {
+            if (!cbk(pslab, AKMALLOC_DEFAULT_PAGE_SIZE)) {
+                return;
+            }
+        }
+    }
+
+    {// ca small
+        ak_circ_list_for_each(ak_ca_segment, seg, &(m->casmall.main_root)) {
+            if (!cbk(seg->head, seg->sz)) {
+                return;
+            }
+        }
+    }
+    {// ca medium
+        ak_circ_list_for_each(ak_ca_segment, seg, &(m->camedium.main_root)) {
+            if (!cbk(seg->head, seg->sz)) {
+                return;
+            }
+        }
+    }
+    {// ca large
+        ak_circ_list_for_each(ak_ca_segment, seg, &(m->calarge.main_root)) {
+            if (!cbk(seg->head, seg->sz)) {
+                return;
+            }
+        }
+    }
+    {// mmaped chunks
+        ak_circ_list_for_each(ak_ca_segment, seg, &(m->map_root)) {
+            if (!cbk(seg->head, seg->sz)) {
+                return;
+            }
+        }
+    }
+}
+
+
 /***********************************************
  * Exported APIs
  ***********************************************/
