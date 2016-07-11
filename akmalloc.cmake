@@ -4,7 +4,7 @@
 # update the rc.h.template file when the version is bumped
 set(akmalloc_major 0)
 set(akmalloc_minor 1)
-set(akmalloc_patch 1)
+set(akmalloc_patch 2)
 
 set(xprt include/akmalloc)
 
