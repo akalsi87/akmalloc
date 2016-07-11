@@ -169,16 +169,16 @@ struct ak_malloc_state_tag
 };
 
 #if !defined(AKMALLOC_SMALL_ALLOC_RELEASE_RATE)
-#  define AKMALLOC_SMALL_ALLOC_RELEASE_RATE 511
+#  define AKMALLOC_SMALL_ALLOC_RELEASE_RATE 2047
 #endif
 #if !defined(AKMALLOC_MEDIUM_ALLOC_RELEASE_RATE)
-#  define AKMALLOC_MEDIUM_ALLOC_RELEASE_RATE 255
+#  define AKMALLOC_MEDIUM_ALLOC_RELEASE_RATE 511
 #endif
 #if !defined(AKMALLOC_LARGE_ALLOC_RELEASE_RATE)
 #  define AKMALLOC_LARGE_ALLOC_RELEASE_RATE 63
 #endif
 
-ak_inline static void ak_malloc_init_state(ak_malloc_state* s)
+static void ak_malloc_init_state(ak_malloc_state* s)
 {
     AKMALLOC_ASSERT_ALWAYS(sizeof(ak_slab) % AK_COALESCE_ALIGN == 0);
     for (ak_sz i = 0; i != NSLABS; ++i) {
@@ -220,55 +220,73 @@ static void ak_try_reclaim_memory(ak_malloc_state* m)
     m->camedium.release = 0;
 }
 
+ak_inline static void* ak_try_slab_alloc(ak_malloc_state* m, size_t sz)
+{
+    AKMALLOC_ASSERT(sz % AK_COALESCE_ALIGN == 0);
+    ak_sz idx = (sz >> 4) - 1;
+    ak_sz* mem = (ak_sz*)ak_slab_alloc(ak_as_ptr(m->slabs[idx]));
+    if (ak_likely(mem)) {
+        ak_alloc_mark_slab(ak_slab_alloc_2_mem(mem)); // we overallocate
+        AKMALLOC_ASSERT(ak_alloc_type_slab(ak_alloc_type_bits(ak_slab_alloc_2_mem(mem))));
+        mem = ak_slab_alloc_2_mem(mem);
+    }
+    return mem;
+}
+
+ak_inline static void* ak_try_coalesce_alloc(ak_malloc_state* m, ak_ca_root* proot, size_t sz)
+{
+    ak_sz* mem = (ak_sz*)ak_ca_alloc(proot, sz);
+    if (ak_likely(mem)) {
+        ak_alloc_mark_coalesce(mem);
+        AKMALLOC_ASSERT(ak_alloc_type_coalesce(ak_alloc_type_bits(mem)));
+    }
+    return mem;
+}
+
+ak_inline static void* ak_try_alloc_mmap(ak_malloc_state* m, size_t sz)
+{
+    ak_ca_segment* mem = (ak_ca_segment*)ak_os_alloc(sz);
+
+    AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->MAP_LOCK));
+    if (ak_likely(mem)) {
+        ak_alloc_mark_mmap(mem + 1);
+        AKMALLOC_ASSERT(ak_alloc_type_mmap(ak_alloc_type_bits(mem + 1)));
+        mem->sz = sz;
+        ak_ca_segment_link(mem, m->map_root.fd, ak_as_ptr(m->map_root));
+        mem += 1;
+    }
+    AKMALLOC_LOCK_RELEASE(ak_as_ptr(m->MAP_LOCK));
+
+    return mem;
+}
+
 static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
 {
     void* retmem = AK_NULLPTR;
     ak_sz modsz = ak_slab_mod_sz(sz);
     if (modsz < MIN_SMALL_REQUEST) {
-        AKMALLOC_ASSERT(modsz % AK_COALESCE_ALIGN == 0);
-        ak_sz idx = (modsz >> 4) - 1;
-        ak_sz* mem = (ak_sz*)ak_slab_alloc(ak_as_ptr(m->slabs[idx]));
-        if (ak_likely(mem)) {
-            ak_alloc_mark_slab(ak_slab_alloc_2_mem(mem)); // we overallocate
-            AKMALLOC_ASSERT(ak_alloc_type_slab(ak_alloc_type_bits(ak_slab_alloc_2_mem(mem))));
-            retmem = ak_slab_alloc_2_mem(mem);
-        }
+        retmem = ak_try_slab_alloc(m, modsz);
     } else if (sz < MMAP_SIZE) {
-        ak_sz* mem = AK_NULLPTR;
         const ak_sz alnsz = ak_ca_aligned_size(sz);
+        ak_ca_root* proot = AK_NULLPTR;
         if (alnsz <= MIN_MEDIUM_REQUEST) {
-            mem = (ak_sz*)ak_ca_alloc(ak_as_ptr(m->casmall), sz);
+            proot = ak_as_ptr(m->casmall);
         } else if (alnsz <= MIN_LARGE_REQUEST) {
-            mem = (ak_sz*)ak_ca_alloc(ak_as_ptr(m->camedium), sz);
+            proot = ak_as_ptr(m->camedium);
         } else {
-            mem = (ak_sz*)ak_ca_alloc(ak_as_ptr(m->calarge), sz);
+            proot = ak_as_ptr(m->calarge);
         }
-        if (ak_likely(mem)) {
-            ak_alloc_mark_coalesce(mem);
-            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ak_alloc_type_bits(mem)));
-            retmem = mem;
-        }
+        retmem = ak_try_coalesce_alloc(m, proot, alnsz);
     } else {
         sz += sizeof(ak_ca_segment);
         const ak_sz actsz = ak_ca_aligned_segment_size(sz);
-        ak_ca_segment* mem = (ak_ca_segment*)ak_os_alloc(actsz);
-
-        AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->MAP_LOCK));
-        if (ak_likely(mem)) {
-            ak_alloc_mark_mmap(mem + 1);
-            AKMALLOC_ASSERT(ak_alloc_type_mmap(ak_alloc_type_bits(mem + 1)));
-            mem->sz = actsz;
-            ak_ca_segment_link(mem, m->map_root.fd, ak_as_ptr(m->map_root));
-        }
-        AKMALLOC_LOCK_RELEASE(ak_as_ptr(m->MAP_LOCK));
-
-        retmem = mem ? (mem + 1) : AK_NULLPTR;
+        retmem = ak_try_alloc_mmap(m, actsz);
     }
 
     return retmem;
 }
 
-ak_inline static void* ak_malloc_from_state(ak_malloc_state* m, size_t sz)
+static void* ak_malloc_from_state(ak_malloc_state* m, size_t sz)
 {
     AKMALLOC_ASSERT(m->init);
     void* mem = ak_try_alloc(m, sz);
@@ -279,7 +297,7 @@ ak_inline static void* ak_malloc_from_state(ak_malloc_state* m, size_t sz)
     return mem;
 }
 
-ak_inline static void ak_free_to_state(ak_malloc_state* m, void* mem)
+static void ak_free_to_state(ak_malloc_state* m, void* mem)
 {
     if (ak_likely(mem)) {
         ak_sz ty = ak_alloc_type_bits(mem);
@@ -295,13 +313,15 @@ ak_inline static void ak_free_to_state(ak_malloc_state* m, void* mem)
             AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
             const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
             const ak_sz alnsz = ak_ca_to_sz(n->currinfo);
+            ak_ca_root* proot = AK_NULLPTR;
             if (alnsz <= MIN_MEDIUM_REQUEST) {
-                ak_ca_free(ak_as_ptr(m->casmall), mem);
+                proot = ak_as_ptr(m->casmall);
             } else if (alnsz <= MIN_LARGE_REQUEST) {
-                ak_ca_free(ak_as_ptr(m->camedium), mem);
+                proot = ak_as_ptr(m->camedium);
             } else {
-                ak_ca_free(ak_as_ptr(m->calarge), mem);
+                proot = ak_as_ptr(m->calarge);
             }
+            ak_ca_free(proot, mem);
         }
     }
 }
@@ -315,7 +335,7 @@ ak_inline static void* ak_realloc_in_place_from_state(ak_malloc_state* m, void* 
     return AK_NULLPTR;
 }
 
-ak_inline static void* ak_realloc_from_state(ak_malloc_state* m, void* mem, size_t newsz)
+static void* ak_realloc_from_state(ak_malloc_state* m, void* mem, size_t newsz)
 {
     if (ak_realloc_in_place_from_state(m, mem, newsz)) {
         return mem;
@@ -476,18 +496,18 @@ static ak_malloc_state MALLOC_ROOT;
 static ak_malloc_state* GMSTATE = AK_NULLPTR;
 static ak_spinlock MALLOC_INIT_LOCK = { 0 };
 
-ak_inline static void ak_ensure_malloc_state_init()
-{
-    if (ak_unlikely(!MALLOC_INIT)) {
-        AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(MALLOC_INIT_LOCK));
-        if (MALLOC_INIT != 1) {
-            GMSTATE = &MALLOC_ROOT;
-            ak_malloc_init_state(GMSTATE);
-            MALLOC_INIT = 1;
-        }
-        AKMALLOC_LOCK_RELEASE(ak_as_ptr(MALLOC_INIT_LOCK));
-    }
-    AKMALLOC_ASSERT(MALLOC_ROOT.init);
+#define ak_ensure_malloc_state_init()                        \
+{                                                            \
+    if (ak_unlikely(!MALLOC_INIT)) {                         \
+        AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(MALLOC_INIT_LOCK));  \
+        if (MALLOC_INIT != 1) {                              \
+            GMSTATE = &MALLOC_ROOT;                          \
+            ak_malloc_init_state(GMSTATE);                   \
+            MALLOC_INIT = 1;                                 \
+        }                                                    \
+        AKMALLOC_LOCK_RELEASE(ak_as_ptr(MALLOC_INIT_LOCK));  \
+    }                                                        \
+    AKMALLOC_ASSERT(MALLOC_ROOT.init);                       \
 }
 
 AK_EXTERN_C_BEGIN
