@@ -52,6 +52,8 @@ For more information, please refer to <http://unlicense.org/>
 /*
  * Revision history:
  *
+ * (July 11, 2016)  0.1.2: Functioning multi threaded malloc.
+ *
  * (July 10, 2016)  0.1.1: Functioning single threaded malloc.
  *
  * (March 11, 2016) 0.0.1: Initial commit
