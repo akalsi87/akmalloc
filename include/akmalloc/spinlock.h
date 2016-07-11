@@ -42,60 +42,58 @@ typedef struct ak_spinlock_tag ak_spinlock;
 
 struct ak_spinlock_tag
 {
-    ak_u32 lockA;  
+    ak_u32 islocked;  
 };
 
 static void ak_os_sleep(ak_u32 micros);
 
 static void ak_spinlock_yield();
 
-#define ak_atomic_load(x) (*(volatile ak_u32*)(&(x)))
-
 #if !AKMALLOC_MSVC && (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) > 40100
 #  define ak_cas(px, nx, ox) __sync_bool_compare_and_swap((px), (ox), (nx))
+#  define ak_str(px, nx) __sync_lock_test_and_set((px), (nx))
 #else/* Windows */
 #  ifndef _M_AMD64
      /* These are already defined on AMD64 builds */
      AK_EXTERN_C_BEGIN
      LONG __cdecl _InterlockedCompareExchange(LONG volatile* Target, LONG NewValue, LONG OldValue);
+     LONG __cdecl _InterlockedExchange(LONG volatile* Target, LONG NewValue);
      AK_EXTERN_C_END
 #    pragma intrinsic (_InterlockedCompareExchange)
 #  endif /* _M_AMD64 */
 #  define ak_cas(px, nx, ox) (_InterlockedCompareExchange((px), (nx), (ox)) == (ox))
+#  define ak_str(px, nx) _InterlockedExchange((px), (nx))
 #endif/* Windows */
 
 ak_inline static int ak_spinlock_is_locked(ak_spinlock* p)
 {
-    return ak_atomic_load(p->lockA);
+    return *(volatile ak_u32*)(&(p->islocked));
 }
 
 ak_inline static void ak_spinlock_init(ak_spinlock* p)
 {
-    p->lockA = 0;
-    AKMALLOC_ASSERT_ALWAYS(!ak_spinlock_is_locked(p));
+    p->islocked = 0;
 }
 
 ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
 {
-    static const ak_u32 SPINS_PER_YIELD = 31;
     ak_u32 spins = 0;
 
-    if (!ak_cas(&(p->lockA), 1, 0)) {
-        while (!ak_cas(&(p->lockA), 1, 0)) {
-            if ((++spins & SPINS_PER_YIELD) == 0) {
+    if (!ak_cas(&(p->islocked), 1, 0)) {
+        while (!ak_cas(&(p->islocked), 1, 0)) {
+            if ((++spins & 31) == 0) {
                 ak_spinlock_yield();
             }
         }
     }
 
-    AKMALLOC_ASSERT_ALWAYS(ak_spinlock_is_locked(p));
+    AKMALLOC_ASSERT(ak_spinlock_is_locked(p));
 }
 
 ak_inline static void ak_spinlock_release(ak_spinlock* p)
 {
-    AKMALLOC_ASSERT_ALWAYS(ak_spinlock_is_locked(p));
-    int rvA = ak_cas(&(p->lockA), 0, 1);
-    AKMALLOC_ASSERT_ALWAYS(rvA == 1);
+    AKMALLOC_ASSERT(ak_spinlock_is_locked(p));
+    ak_str(&(p->islocked), 0);
 }
 
 #if AKMALLOC_WINDOWS

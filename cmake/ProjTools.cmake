@@ -183,7 +183,9 @@ initvar(USE_CODE_COV)
 if (NOT USE_CODE_COV)
   string(COMPARE EQUAL "$ENV{USE_CODE_COV}" "" is_code_cov_unspec)
   if (is_code_cov_unspec)
-    set(USE_CODE_COV 1)
+    # is config Debug?
+    string(COMPARE EQUAL ${CMAKE_BUILD_TYPE} "Debug" usecodecov)
+    set(USE_CODE_COV ${usecodecov})
   endif()
 endif()
 
