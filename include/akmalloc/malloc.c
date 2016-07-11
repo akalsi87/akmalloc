@@ -55,7 +55,7 @@ For more information, please refer to <http://unlicense.org/>
 #  define AKMALLOC_LOCK_RELEASE(lk)
 #endif
 
-#define AK_COALESCE_SEGMENT_GRANULARITY (((size_t)1) << 21)
+#define AK_COALESCE_SEGMENT_GRANULARITY (((size_t)1) << 18) /* 256KB */
 
 #include "akmalloc/slab.h"
 #include "akmalloc/coalescingalloc.h"
@@ -146,13 +146,13 @@ static void ak_malloc_init_state(ak_malloc_state* s)
     for (ak_sz i = 0; i != NSLABS; ++i) {
         ak_slab_init_root_default(ak_as_ptr(s->slabs[i]), SLAB_SIZES[i]);
     }
-    ak_ca_init_root_default(ak_as_ptr(s->casmall));
+    ak_ca_init_root(ak_as_ptr(s->casmall), 1023, 1023);
     s->casmall.MIN_SIZE_TO_SPLIT = MAX_SMALL_REQUEST - 1;
 
-    ak_ca_init_root_default(ak_as_ptr(s->camedium));
+    ak_ca_init_root(ak_as_ptr(s->camedium), 1023, 1023);
     s->camedium.MIN_SIZE_TO_SPLIT = MIN_MEDIUM_REQUEST;
 
-    ak_ca_init_root_default(ak_as_ptr(s->calarge));
+    ak_ca_init_root(ak_as_ptr(s->calarge), 1023, 1023);
     s->calarge.MIN_SIZE_TO_SPLIT = MIN_LARGE_REQUEST;
 
     ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
