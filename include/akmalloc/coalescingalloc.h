@@ -50,7 +50,9 @@ For more information, please refer to <http://unlicense.org/>
  */
 #define AK_COALESCE_ALIGN 16
 
-#define AK_COALESCE_SEGMENT_GRANULARITY 65536
+#if !defined(AK_COALESCE_SEGMENT_GRANULARITY)
+#  define AK_COALESCE_SEGMENT_GRANULARITY 65536
+#endif
 
 #if !defined(AK_COALESCE_SEGMENT_SIZE)
 /* 64KB */

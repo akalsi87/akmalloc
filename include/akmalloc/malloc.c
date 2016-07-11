@@ -53,6 +53,8 @@ For more information, please refer to <http://unlicense.org/>
 #  define AKMALLOC_LOCK_RELEASE(lk)
 #endif
 
+#define AK_COALESCE_SEGMENT_GRANULARITY (((size_t)1) << 21)
+
 #include "akmalloc/slab.h"
 #include "akmalloc/coalescingalloc.h"
 #include "akmalloc/setup.h"
