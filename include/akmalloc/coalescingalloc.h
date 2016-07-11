@@ -60,10 +60,12 @@ For more information, please refer to <http://unlicense.org/>
 #endif
 
 #if defined(AK_CA_USE_LOCKS)
+#  define AK_CA_LOCK_DEFINE(nm)    ak_spinlock nm
 #  define AK_CA_LOCK_INIT(root)    ak_spinlock_init(ak_as_ptr((root)->LOCKED))
 #  define AK_CA_LOCK_ACQUIRE(root) ak_spinlock_acquire(ak_as_ptr((root)->LOCKED))
 #  define AK_CA_LOCK_RELEASE(root) ak_spinlock_release(ak_as_ptr((root)->LOCKED))
 #else
+#  define AK_CA_LOCK_DEFINE(nm)
 #  define AK_CA_LOCK_INIT(root)
 #  define AK_CA_LOCK_ACQUIRE(root)
 #  define AK_CA_LOCK_RELEASE(root)
@@ -117,7 +119,7 @@ struct ak_ca_root_tag
     ak_u32 MAX_SEGMENTS_TO_FREE;
     ak_sz MIN_SIZE_TO_SPLIT;
 
-    ak_spinlock LOCKED;
+    AK_CA_LOCK_DEFINE(LOCKED);
 };
 
 /**************************************************************/

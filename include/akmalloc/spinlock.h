@@ -50,19 +50,19 @@ static void ak_os_sleep(ak_u32 micros);
 static void ak_spinlock_yield();
 
 #if !AKMALLOC_MSVC && (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) > 40100
-#  define ak_cas(px, nx, ox) __sync_bool_compare_and_swap((px), (ox), (nx))
-#  define ak_str(px, nx) __sync_lock_test_and_set((px), (nx))
+#  define ak_atomic_cas(px, nx, ox) __sync_bool_compare_and_swap((px), (ox), (nx))
+#  define ak_atomic_xchg(px, nx) __sync_lock_test_and_set((px), (nx))
 #else/* Windows */
 #  ifndef _M_AMD64
-     /* These are already defined on AMD64 builds */
-     AK_EXTERN_C_BEGIN
+   /* These are already defined on AMD64 builds */
+   AK_EXTERN_C_BEGIN
      LONG __cdecl _InterlockedCompareExchange(LONG volatile* Target, LONG NewValue, LONG OldValue);
      LONG __cdecl _InterlockedExchange(LONG volatile* Target, LONG NewValue);
-     AK_EXTERN_C_END
+   AK_EXTERN_C_END
 #    pragma intrinsic (_InterlockedCompareExchange)
 #  endif /* _M_AMD64 */
-#  define ak_cas(px, nx, ox) (_InterlockedCompareExchange((px), (nx), (ox)) == (ox))
-#  define ak_str(px, nx) _InterlockedExchange((px), (nx))
+#  define ak_atomic_cas(px, nx, ox) (_InterlockedCompareExchange((px), (nx), (ox)) == (ox))
+#  define ak_atomic_xchg(px, nx) _InterlockedExchange((px), (nx))
 #endif/* Windows */
 
 ak_inline static int ak_spinlock_is_locked(ak_spinlock* p)
@@ -79,8 +79,8 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
 {
     ak_u32 spins = 0;
 
-    if (!ak_cas(&(p->islocked), 1, 0)) {
-        while (!ak_cas(&(p->islocked), 1, 0)) {
+    if (ak_atomic_xchg(&(p->islocked), 1)) {
+        while (ak_atomic_xchg(&(p->islocked), 1)) {
             if ((++spins & 31) == 0) {
                 ak_spinlock_yield();
             }
@@ -93,7 +93,7 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
 ak_inline static void ak_spinlock_release(ak_spinlock* p)
 {
     AKMALLOC_ASSERT(ak_spinlock_is_locked(p));
-    ak_str(&(p->islocked), 0);
+    ak_atomic_xchg(&(p->islocked), 0);
 }
 
 #if AKMALLOC_WINDOWS

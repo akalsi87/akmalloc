@@ -46,6 +46,18 @@ typedef struct ak_slab_tag ak_slab;
 
 typedef struct ak_slab_root_tag ak_slab_root;
 
+#if defined(AK_SLAB_USE_LOCKS)
+#  define AK_SLAB_LOCK_DEFINE(nm)    ak_spinlock nm
+#  define AK_SLAB_LOCK_INIT(root)    ak_spinlock_init(ak_as_ptr((root)->LOCKED))
+#  define AK_SLAB_LOCK_ACQUIRE(root) ak_spinlock_acquire(ak_as_ptr((root)->LOCKED))
+#  define AK_SLAB_LOCK_RELEASE(root) ak_spinlock_release(ak_as_ptr((root)->LOCKED))
+#else
+#  define AK_SLAB_LOCK_DEFINE(nm)
+#  define AK_SLAB_LOCK_INIT(root)
+#  define AK_SLAB_LOCK_ACQUIRE(root)
+#  define AK_SLAB_LOCK_RELEASE(root)
+#endif
+
 struct ak_slab_tag
 {
     ak_slab*      fd;
@@ -70,18 +82,8 @@ struct ak_slab_root_tag
 
     ak_u32 RELEASE_RATE;
     ak_u32 MAX_PAGES_TO_FREE;
-    ak_spinlock LOCKED;
+    AK_SLAB_LOCK_DEFINE(LOCKED);
 };
-
-#if defined(AK_SLAB_USE_LOCKS)
-#  define AK_SLAB_LOCK_INIT(root)    ak_spinlock_init(ak_as_ptr((root)->LOCKED))
-#  define AK_SLAB_LOCK_ACQUIRE(root) ak_spinlock_acquire(ak_as_ptr((root)->LOCKED))
-#  define AK_SLAB_LOCK_RELEASE(root) ak_spinlock_release(ak_as_ptr((root)->LOCKED))
-#else
-#  define AK_SLAB_LOCK_INIT(root)
-#  define AK_SLAB_LOCK_ACQUIRE(root)
-#  define AK_SLAB_LOCK_RELEASE(root)
-#endif
 
 #if !defined(AK_SLAB_RELEASE_RATE)
 #  define AK_SLAB_RELEASE_RATE 512

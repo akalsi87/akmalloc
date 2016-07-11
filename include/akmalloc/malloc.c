@@ -44,10 +44,12 @@ For more information, please refer to <http://unlicense.org/>
 #if defined(AKMALLOC_USE_LOCKS)
 #  define AK_SLAB_USE_LOCKS
 #  define AK_CA_USE_LOCKS
+#  define AKMALLOC_LOCK_DEFINE(nm)  ak_spinlock nm
 #  define AKMALLOC_LOCK_INIT(lk)    ak_spinlock_init((lk))
 #  define AKMALLOC_LOCK_ACQUIRE(lk) ak_spinlock_acquire((lk))
 #  define AKMALLOC_LOCK_RELEASE(lk) ak_spinlock_release((lk))
 #else
+#  define AKMALLOC_LOCK_DEFINE(nm)
 #  define AKMALLOC_LOCK_INIT(lk)
 #  define AKMALLOC_LOCK_ACQUIRE(lk)
 #  define AKMALLOC_LOCK_RELEASE(lk)
@@ -135,7 +137,7 @@ struct ak_malloc_state_tag
     ak_ca_root   calarge;
     ak_ca_segment map_root;
 
-    ak_spinlock LOCK;
+    AKMALLOC_LOCK_DEFINE(MAP_LOCK);
 };
 
 static void ak_malloc_init_state(ak_malloc_state* s)
@@ -155,7 +157,7 @@ static void ak_malloc_init_state(ak_malloc_state* s)
 
     ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
 
-    AKMALLOC_LOCK_INIT(ak_as_ptr(s->LOCK));
+    AKMALLOC_LOCK_INIT(ak_as_ptr(s->MAP_LOCK));
     s->init = 1;
 }
 
@@ -214,14 +216,14 @@ static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
         const ak_sz actsz = ak_ca_aligned_segment_size(sz);
         ak_ca_segment* mem = (ak_ca_segment*)ak_os_alloc(actsz);
 
-        AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->LOCK));
+        AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->MAP_LOCK));
         if (ak_likely(mem)) {
             ak_alloc_mark_mmap(mem + 1);
             AKMALLOC_ASSERT(ak_alloc_type_mmap(ak_alloc_type_bits(mem + 1)));
             mem->sz = actsz;
             ak_ca_segment_link(mem, m->map_root.fd, ak_as_ptr(m->map_root));
         }
-        AKMALLOC_LOCK_RELEASE(ak_as_ptr(m->LOCK));
+        AKMALLOC_LOCK_RELEASE(ak_as_ptr(m->MAP_LOCK));
 
         retmem = mem ? (mem + 1) : AK_NULLPTR;
     }
@@ -247,11 +249,11 @@ static void ak_free_to_state(ak_malloc_state* m, void* mem)
         if (ak_alloc_type_slab(ty)) {
             ak_slab_free(((ak_sz*)mem) - 1);
         } else if (ak_alloc_type_mmap(ty)) {
-            AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->LOCK));
+            AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->MAP_LOCK));
             ak_ca_segment* seg = ((ak_ca_segment*)mem) - 1;
             ak_ca_segment_unlink(seg);
             ak_os_free(seg, seg->sz);
-            AKMALLOC_LOCK_RELEASE(ak_as_ptr(m->LOCK));
+            AKMALLOC_LOCK_RELEASE(ak_as_ptr(m->MAP_LOCK));
         } else {
             AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
             const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
@@ -299,18 +301,21 @@ static void* ak_aligned_alloc_from_state_no_checks(ak_malloc_state* m, size_t al
     req += aln + (2 * sizeof(ak_alloc_node)) + (2 * sizeof(ak_free_list_node));
     char* mem = AK_NULLPTR;
     // must request from coalesce alloc so we can return the extra piece
+    ak_ca_root* ca = AK_NULLPTR;
     if (aln <= MIN_MEDIUM_REQUEST) {
-        mem = (char*)ak_ca_alloc(ak_as_ptr(m->casmall), req);
+        ca = ak_as_ptr(m->casmall);
     } else if (aln <= MIN_LARGE_REQUEST) {
-        mem = (char*)ak_ca_alloc(ak_as_ptr(m->camedium), req);
+        ca = ak_as_ptr(m->camedium);
     } else {
-        mem = (char*)ak_ca_alloc(ak_as_ptr(m->calarge), req);
+        ca = ak_as_ptr(m->calarge);
     }
 
+    mem = (char*)ak_ca_alloc(ca, req);
     ak_alloc_node* node = ((ak_alloc_node*)mem) - 1;
     if (ak_likely(mem)) {
         if ((((ak_sz)mem) & (aln - 1)) != 0) {
             // misaligned
+            AK_CA_LOCK_ACQUIRE(ca);
             char* alnpos = (char*)(((ak_sz)(mem + aln - 1)) & ~(aln - 1));
             ak_alloc_node* alnnode = ((ak_alloc_node*)alnpos) - 1;
             AKMALLOC_ASSERT(alnpos - mem >= (sizeof(ak_free_list_node) + sizeof(ak_alloc_node)));
@@ -328,6 +333,7 @@ static void* ak_aligned_alloc_from_state_no_checks(ak_malloc_state* m, size_t al
             ak_ca_update_footer(node);
             ak_ca_update_footer(alnnode);
             mem = alnpos;
+            AK_CA_LOCK_RELEASE(ca);
         }
         return mem;
     }
@@ -410,7 +416,7 @@ void* ak_malloc(size_t sz)
 void* ak_calloc(size_t elsz, size_t numel)
 {
     const ak_sz sz = elsz*numel;
-    void* mem = ak_malloc(sz);
+    void* mem = ak_malloc_from_state(GMSTATE, sz);
     return ak_memset(mem, 0, sz);
 }
 
@@ -440,7 +446,7 @@ void* ak_memalign(size_t sz, size_t aln)
 
 size_t ak_malloc_usable_size(const void* mem)
 {
-    if (mem) {
+    if (ak_likely(mem)) {
         ak_sz ty = ak_alloc_type_bits(mem);
         if (ak_alloc_type_slab(ty)) {
             // round to page
