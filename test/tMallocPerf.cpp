@@ -244,7 +244,13 @@ CPP_TEST( allocRandomFreeMap )
 #if AKMALLOC_BITNESS == 64
     static const ak_sz nptrs = 1000;
 #else
-    static const ak_sz nptrs =  600;
+    static const ak_sz nptrs =  500;
+    static int runalready = 0;
+    if (!runalready) {
+        runalready = 1;
+    } else {
+        return;
+    }
 #endif
     static const ak_sz sizemin = (AK_SZ_ONE << 20);
     static const ak_sz sizemax = (AK_SZ_ONE << 22);
