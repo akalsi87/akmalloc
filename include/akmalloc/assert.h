@@ -37,8 +37,8 @@ For more information, please refer to <http://unlicense.org/>
 #if !defined(AKMALLOC_ASSERT_IMPL)
 #  include <stdlib.h>
 #  include <stdio.h>
-#  define AKMALLOC_ASSERT_IMPL(x)                                                                \
-    if (!(x)) {                                                                                     \
+#  define AKMALLOC_ASSERT_IMPL(x)                                                                 \
+    if (!(x)) {                                                                                   \
       fprintf(stderr, "%s (%d) : %s\n", __FILE__, __LINE__, "ASSERT: failed condition `" #x "'"); \
       ak_call_abort();                                                                            \
     }
