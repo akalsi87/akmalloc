@@ -254,7 +254,13 @@ ak_inline static void ak_ca_update_footer(ak_alloc_node* p)
 
 static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz, ak_sz splitsz)
 {
-    // walk through list finding the first element that fits and split
+    AKMALLOC_ASSERT(splitsz >= sizeof(ak_free_list_node));
+    AKMALLOC_ASSERT(splitsz % AK_COALESCE_ALIGN == 0);
+
+    // add the overhead per node
+    splitsz += sizeof(ak_alloc_node);
+
+    // walk through list finding the first element that fits and split if required
     ak_circ_list_for_each(ak_free_list_node, node, root) {
         ak_alloc_node* n = ((ak_alloc_node*)(node)) - 1;
         AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
@@ -372,7 +378,7 @@ static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofr
 
     root->RELEASE_RATE = relrate;
     root->MAX_SEGMENTS_TO_FREE = maxsegstofree;
-    root->MIN_SIZE_TO_SPLIT = (sizeof(ak_alloc_node) + sizeof(ak_free_list_node));
+    root->MIN_SIZE_TO_SPLIT = sizeof(ak_free_list_node);
     AK_CA_LOCK_INIT(root);
 }
 
