@@ -38,7 +38,6 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/inline.h"
 #include "akmalloc/constants.h"
 #include "akmalloc/setup.h"
-#include "akmalloc/utils.h"
 
 /**
  * We choose a minimum alignment of 16. One could increase this, but not decrease.
@@ -249,7 +248,7 @@ ak_inline static void ak_ca_update_footer(ak_alloc_node* p)
     type* name = (list)->fd;                         \
     for(type* const iterroot = (list); name != iterroot; name = name->fd)
 
-#define ak_ca_aligned_size(x) (x) ? (((x) + AK_COALESCE_ALIGN - 1) & ~(AK_COALESCE_ALIGN - 1)) : AK_COALESCE_ALIGN
+#define ak_ca_aligned_size(x) ((x) ? (((x) + AK_COALESCE_ALIGN - 1) & ~(AK_COALESCE_ALIGN - 1)) : AK_COALESCE_ALIGN)
 
 #define ak_ca_aligned_segment_size(x) (((x) + (AK_COALESCE_SEGMENT_SIZE) - 1) & ~((AK_COALESCE_SEGMENT_SIZE) - 1))
 

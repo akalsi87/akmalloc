@@ -244,7 +244,13 @@ CPP_TEST( allocRandomFreeMap )
 #if AKMALLOC_BITNESS == 64
     static const ak_sz nptrs = 1000;
 #else
-    static const ak_sz nptrs =  600;
+    static const ak_sz nptrs =  500;
+    static int runalready = 0;
+    if (!runalready) {
+        runalready = 1;
+    } else {
+        return;
+    }
 #endif
     static const ak_sz sizemin = (AK_SZ_ONE << 20);
     static const ak_sz sizemax = (AK_SZ_ONE << 22);
@@ -298,12 +304,14 @@ CPP_TEST( allocRandomFreeMap )
 
 #include <thread>
 
+static const size_t nthreads = std::thread::hardware_concurrency();
+
 void AllocDeallocTask()
 {
-    static const ak_sz nptrs = 10000;
+    static const ak_sz nptrs = (10000 * nthreads) > 20000 ? 20000/nthreads : 10000;
  
-    void* p[nptrs] = { 0 };
-    size_t sizes[nptrs] = { 0 };
+    void* p[20000] = { 0 };
+    size_t sizes[20000] = { 0 };
 
     size_t sizemin =   0;
     size_t sizemax =   0;

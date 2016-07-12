@@ -56,13 +56,13 @@ static void ak_spinlock_yield();
 #  ifndef _M_AMD64
    /* These are already defined on AMD64 builds */
    AK_EXTERN_C_BEGIN
-     LONG __cdecl _InterlockedCompareExchange(LONG volatile* Target, LONG NewValue, LONG OldValue);
-     LONG __cdecl _InterlockedExchange(LONG volatile* Target, LONG NewValue);
+     long __cdecl _InterlockedCompareExchange(long volatile* Target, long NewValue, long OldValue);
+     long __cdecl _InterlockedExchange(long volatile* Target, long NewValue);
    AK_EXTERN_C_END
 #    pragma intrinsic (_InterlockedCompareExchange)
 #  endif /* _M_AMD64 */
-#  define ak_atomic_cas(px, nx, ox) (_InterlockedCompareExchange((px), (nx), (ox)) == (ox))
-#  define ak_atomic_xchg(px, nx) _InterlockedExchange((px), (nx))
+#  define ak_atomic_cas(px, nx, ox) (_InterlockedCompareExchange((volatile long*)(px), (nx), (ox)) == (ox))
+#  define ak_atomic_xchg(px, nx) _InterlockedExchange((volatile long*)(px), (nx))
 #endif/* Windows */
 
 ak_inline static int ak_spinlock_is_locked(ak_spinlock* p)
@@ -79,13 +79,21 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
 {
     ak_u32 spins = 0;
 
+#if AKMALLOC_WINDOWS
+#  define SPINS_PER_YIELD 63
+#else
+#  define SPINS_PER_YIELD 31
+#endif
+
     if (ak_atomic_xchg(&(p->islocked), 1)) {
         while (ak_atomic_xchg(&(p->islocked), 1)) {
-            if ((++spins & 31) == 0) {
+            if ((++spins & SPINS_PER_YIELD) == 0) {
                 ak_spinlock_yield();
             }
         }
     }
+
+#undef SPINS_PER_YIELD
 
     AKMALLOC_ASSERT(ak_spinlock_is_locked(p));
 }
@@ -104,14 +112,12 @@ ak_inline static void ak_spinlock_release(ak_spinlock* p)
 
 static void ak_os_sleep(ak_u32 micros)
 {
-    const ak_u32 millis = micros/1000;
-    SleepEx(millis ? millis : 1, FALSE);
+    SleepEx(micros / 1000, FALSE);
 }
 
 static void ak_spinlock_yield()
 {
-    // obtained from dlmalloc
-    SleepEx(50, FALSE);
+    SwitchToThread();
 }
 
 #else
