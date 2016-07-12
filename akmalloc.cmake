@@ -32,7 +32,6 @@ set(akmalloc_exp_hdr
     ${xprt}/memmap.h;
     ${xprt}/threadlocal.h;
     ${xprt}/types.h;
-    ${xprt}/utils.h;
     ${xprt}/setup.h;
     ${xprt}/slab.h;
     ${xprt}/spinlock.h;

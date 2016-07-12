@@ -65,6 +65,7 @@ For more information, please refer to <http://unlicense.org/>
  * return non-zero to keep continuing
  */
 typedef int(*ak_seg_cbk)(const void*, size_t);
+#define AK_SEG_CBK_DEFINED
 
 AK_EXTERN_C_BEGIN
 

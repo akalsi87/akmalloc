@@ -38,7 +38,6 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/inline.h"
 #include "akmalloc/constants.h"
 #include "akmalloc/setup.h"
-#include "akmalloc/utils.h"
 
 /**
  * We choose a minimum alignment of 16. One could increase this, but not decrease.

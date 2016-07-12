@@ -33,22 +33,20 @@ For more information, please refer to <http://unlicense.org/>
 #ifndef AKMALLOC_ASSERT_H
 #define AKMALLOC_ASSERT_H
 
-#include <stdlib.h>
-#include <stdio.h>
-
-static void ak_call_abort()
-{
-    abort();
-}
-
-#define AKMALLOC_DEFAULT_ASSERT(x)                                                                \
-  if (!(x)) {                                                                                     \
-      fprintf(stderr, "%s (%d) : %s\n", __FILE__, __LINE__, "ASSERT: failed condition `" #x "'"); \
-      ak_call_abort();                                                                            \
-  }
 
 #if !defined(AKMALLOC_ASSERT_IMPL)
-#  define AKMALLOC_ASSERT_IMPL AKMALLOC_DEFAULT_ASSERT
+#  include <stdlib.h>
+#  include <stdio.h>
+#  define AKMALLOC_ASSERT_IMPL(x)                                                                \
+    if (!(x)) {                                                                                     \
+      fprintf(stderr, "%s (%d) : %s\n", __FILE__, __LINE__, "ASSERT: failed condition `" #x "'"); \
+      ak_call_abort();                                                                            \
+    }
+
+    static void ak_call_abort()
+    {
+        abort();
+    }
 #endif
 
 #if !defined(AKMALLOC_ASSERT)
