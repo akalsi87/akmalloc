@@ -35,6 +35,7 @@ For more information, please refer to <http://unlicense.org/>
 
 #include "akmalloc/config.h"
 #include "akmalloc/constants.h"
+#include "akmalloc/inline.h"
 #include "akmalloc/types.h"
 
 #if AKMALLOC_WINDOWS
@@ -43,10 +44,10 @@ For more information, please refer to <http://unlicense.org/>
 #define NOMINMAX
 #include <Windows.h>
 
-static ak_sz ak_page_size()
+ak_inline static ak_sz ak_page_size()
 {
     static ak_sz PGSZ = 0;
-    if (PGSZ == 0) {
+    if (ak_unlikely(!PGSZ)) {
         SYSTEM_INFO si;
         GetSystemInfo(&si);
         PGSZ = si.dwPageSize;
@@ -54,12 +55,12 @@ static ak_sz ak_page_size()
     return PGSZ;
 }
 
-static void* ak_mmap(ak_sz s)
+ak_inline static void* ak_mmap(ak_sz s)
 {
     return VirtualAlloc(0, s, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 }
 
-static void ak_munmap(void* p, ak_sz s)
+ak_inline static void ak_munmap(void* p, ak_sz s)
 {
     (void)VirtualFree(p, s, MEM_RELEASE);
 }
@@ -68,22 +69,26 @@ static void ak_munmap(void* p, ak_sz s)
 
 #include <sys/mman.h>
 
-static void* ak_mmap(ak_sz s)
+ak_inline static void* ak_mmap(ak_sz s)
 {
     void* addr = mmap(0, s, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
     return (addr == (void*)AK_SZ_MAX) ? 0 : addr;
 }
 
-static void ak_munmap(void* p, ak_sz s)
+ak_inline static void ak_munmap(void* p, ak_sz s)
 {
     (void)munmap(p, s);
 }
 
 #include <unistd.h>
 
-inline static ak_sz ak_page_size()
+ak_inline static ak_sz ak_page_size()
 {
-    return sysconf(_SC_PAGESIZE);
+    static ak_sz pgsz = 0;
+    if (ak_unlikely(!pgsz)) {
+        pgsz = sysconf(_SC_PAGESIZE);
+    }
+    return pgsz;
 }
 
 #endif

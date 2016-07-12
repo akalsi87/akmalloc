@@ -226,7 +226,7 @@ ak_inline static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_sla
 
 #define ak_slab_2_mem(s) (char*)(void*)((s) + 1)
 
-static int ak_slab_all_free(ak_slab* s)
+ak_inline static int ak_slab_all_free(ak_slab* s)
 {
     const ak_bitset512* pavail = &(s->avail);
     ak_u32 nto;
@@ -234,7 +234,7 @@ static int ak_slab_all_free(ak_slab* s)
     return nto == s->root->navail;
 }
 
-static int ak_slab_none_free(ak_slab* s)
+ak_inline static int ak_slab_none_free(ak_slab* s)
 {
     const ak_bitset512* pavail = &(s->avail);
     int ntz;
@@ -327,7 +327,7 @@ ak_inline static void ak_slab_init_root_default(ak_slab_root* s, ak_sz sz)
     ak_slab_init_root(s, sz, (ak_u32)ak_num_pages_for_sz(sz), (ak_u32)(AK_SLAB_RELEASE_RATE), (ak_u32)(AK_SLAB_MAX_PAGES_TO_FREE));
 }
 
-static void* ak_slab_alloc(ak_slab_root* root)
+ak_inline static void* ak_slab_alloc(ak_slab_root* root)
 {
     int ntz = 0;
     ak_slab* slab = AK_NULLPTR;
@@ -354,7 +354,7 @@ static void* ak_slab_alloc(ak_slab_root* root)
     return mem;
 }
 
-static void ak_slab_free(void* p)
+ak_inline static void ak_slab_free(void* p)
 {
     char* mem = (char*)p;
 

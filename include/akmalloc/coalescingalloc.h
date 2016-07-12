@@ -412,7 +412,7 @@ static void* ak_ca_alloc(ak_ca_root* root, ak_sz s)
     return mem;
 }
 
-static void ak_ca_free(ak_ca_root* root, void* m)
+ak_inline static void ak_ca_free(ak_ca_root* root, void* m)
 {
     // get alloc header before
     ak_alloc_node* node = ((ak_alloc_node*)m) - 1;
