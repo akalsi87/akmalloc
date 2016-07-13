@@ -10,7 +10,9 @@
 
 #include "akmalloc/coalescingalloc.h"
 
-#define USE_MALLOC 0
+#if !defined(USE_MALLOC)
+#  define USE_MALLOC 0
+#endif
 
 #if !defined(NDEBUG)
 #  define TEST_DESTRUCTION 1
