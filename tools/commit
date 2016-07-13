@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
+
+set -e
+
 tools_dir=$(cd "$(dirname "$0")"; pwd)
 proj_dir=`dirname ${tools_dir}`
 
+rm -fr ${tools_dir}/../build
+${tools_dir}/build Debug
+
+rm -fr ${tools_dir}/../build
+${tools_dir}/build Release
+
+${tools_dir}/test_on_install Release
 
 PARAMS=""
 for PARAM in "$@"
