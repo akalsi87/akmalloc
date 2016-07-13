@@ -11,7 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define USE_MALLOC 0
+#if !defined(USE_MALLOC)
+#  define USE_MALLOC 0
+#endif
 
 template <class T>
 void shuffle(T* array, ak_sz n)

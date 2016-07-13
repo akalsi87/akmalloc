@@ -378,7 +378,7 @@ static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofr
 
     root->RELEASE_RATE = relrate;
     root->MAX_SEGMENTS_TO_FREE = maxsegstofree;
-    root->MIN_SIZE_TO_SPLIT = sizeof(ak_free_list_node);
+    root->MIN_SIZE_TO_SPLIT = (sizeof(ak_free_list_node) >= AK_COALESCE_ALIGN) ? sizeof(ak_free_list_node) : AK_COALESCE_ALIGN;
     AK_CA_LOCK_INIT(root);
 }
 
