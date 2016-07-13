@@ -81,6 +81,8 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
 
 #if AKMALLOC_WINDOWS
 #  define SPINS_PER_YIELD 63
+#elif AKMALLOC_MACOS || AKMALLOC_IOS
+#  define SPINS_PER_YIELD 15
 #else
 #  define SPINS_PER_YIELD 31
 #endif
@@ -88,7 +90,15 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
     if (ak_atomic_xchg(&(p->islocked), 1)) {
         while (ak_atomic_xchg(&(p->islocked), 1)) {
             if ((++spins & SPINS_PER_YIELD) == 0) {
+#if AKMALLOC_MACOS || AKMALLOC_IOS
+                if ((spins >> 5) & 1) {
+                    ak_os_sleep(40);
+                } else {
+                    ak_spinlock_yield();
+                }
+#else
                 ak_spinlock_yield();
+#endif
             }
         }
     }
