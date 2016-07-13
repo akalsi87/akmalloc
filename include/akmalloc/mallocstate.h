@@ -136,14 +136,14 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
 #endif
 
 /* cannot be changed. we have fixed size slabs */
-#define MIN_SMALL_REQUEST 257
+#define MIN_SMALL_REQUEST 256
 
 #if !defined(MIN_MEDIUM_REQUEST)
-#  define MIN_MEDIUM_REQUEST 16383
+#  define MIN_MEDIUM_REQUEST 16384
 #endif
 
 #if !defined(MIN_LARGE_REQUEST)
-#  define MIN_LARGE_REQUEST 65535
+#  define MIN_LARGE_REQUEST 65536
 #endif
 
 #if !defined(MMAP_SIZE)
@@ -290,14 +290,14 @@ static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
 {
     void* retmem = AK_NULLPTR;
     ak_sz modsz = ak_slab_mod_sz(sz);
-    if (modsz < MIN_SMALL_REQUEST) {
+    if (modsz <= MIN_SMALL_REQUEST) {
         retmem = ak_try_slab_alloc(m, modsz);
     } else if (sz < MMAP_SIZE) {
         const ak_sz alnsz = ak_ca_aligned_size(sz);
         ak_ca_root* proot = AK_NULLPTR;
-        if (alnsz <= MIN_MEDIUM_REQUEST) {
+        if (alnsz < MIN_MEDIUM_REQUEST) {
             proot = ak_as_ptr(m->casmall);
-        } else if (alnsz <= MIN_LARGE_REQUEST) {
+        } else if (alnsz < MIN_LARGE_REQUEST) {
             proot = ak_as_ptr(m->camedium);
         } else {
             proot = ak_as_ptr(m->calarge);
@@ -323,7 +323,7 @@ static void* ak_malloc_from_state(ak_malloc_state* m, size_t sz)
     return mem;
 }
 
-static void ak_free_to_state(ak_malloc_state* m, void* mem)
+ak_inline static void ak_free_to_state(ak_malloc_state* m, void* mem)
 {
     if (ak_likely(mem)) {
         ak_sz ty = ak_alloc_type_bits(mem);
@@ -340,9 +340,9 @@ static void ak_free_to_state(ak_malloc_state* m, void* mem)
             const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
             const ak_sz alnsz = ak_ca_to_sz(n->currinfo);
             ak_ca_root* proot = AK_NULLPTR;
-            if (alnsz <= MIN_MEDIUM_REQUEST) {
+            if (alnsz < MIN_MEDIUM_REQUEST) {
                 proot = ak_as_ptr(m->casmall);
-            } else if (alnsz <= MIN_LARGE_REQUEST) {
+            } else if (alnsz < MIN_LARGE_REQUEST) {
                 proot = ak_as_ptr(m->camedium);
             } else {
                 proot = ak_as_ptr(m->calarge);
@@ -406,9 +406,9 @@ static void* ak_aligned_alloc_from_state_no_checks(ak_malloc_state* m, size_t al
     char* mem = AK_NULLPTR;
     // must request from coalesce alloc so we can return the extra piece
     ak_ca_root* ca = AK_NULLPTR;
-    if (aln <= MIN_MEDIUM_REQUEST) {
+    if (aln < MIN_MEDIUM_REQUEST) {
         ca = ak_as_ptr(m->casmall);
-    } else if (aln <= MIN_LARGE_REQUEST) {
+    } else if (aln < MIN_LARGE_REQUEST) {
         ca = ak_as_ptr(m->camedium);
     } else {
         ca = ak_as_ptr(m->calarge);
