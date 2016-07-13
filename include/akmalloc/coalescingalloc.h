@@ -160,14 +160,14 @@ ak_inline static ak_alloc_node* ak_ca_next_node(ak_alloc_node* node)
 {
     return ak_ca_is_last(node->currinfo)
                 ? AK_NULLPTR
-                : (ak_alloc_node*)((char*)(node + 1) + ak_ca_to_sz(node->currinfo));
+                : ak_ptr_cast(ak_alloc_node,((char*)(node + 1) + ak_ca_to_sz(node->currinfo)));
 }
 
 ak_inline static ak_alloc_node* ak_ca_prev_node(ak_alloc_node* node)
 {
     return ak_ca_is_first(node->currinfo)
                 ? AK_NULLPTR
-                : (ak_alloc_node*)((char*)(node - 1) - ak_ca_to_sz(node->previnfo));
+                : ak_ptr_cast(ak_alloc_node, ((char*)(node - 1) - ak_ca_to_sz(node->previnfo)));
 }
 
 ak_inline static void ak_ca_update_footer(ak_alloc_node* p)
@@ -268,7 +268,7 @@ static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz, ak_sz spl
         if (nodesz >= sz) {
             if ((nodesz - sz) > splitsz) {
                 // split and assign
-                ak_alloc_node* newnode = (ak_alloc_node*)(((char*)node) + sz);
+                ak_alloc_node* newnode = ak_ptr_cast(ak_alloc_node, (((char*)node) + sz));
                 int islast = ak_ca_is_last(n->currinfo);
 
                 ak_ca_set_sz(ak_as_ptr(n->currinfo), sz);
@@ -302,10 +302,10 @@ static int ak_ca_add_new_segment(ak_ca_root* root, char* mem, ak_sz sz)
 {
     if (ak_likely(mem)) {
         // make segment
-        ak_ca_segment* seg = (ak_ca_segment*)(mem + sz - sizeof(ak_ca_segment));
+        ak_ca_segment* seg = ak_ptr_cast(ak_ca_segment, (mem + sz - sizeof(ak_ca_segment)));
         ak_ca_segment_link(seg, root->main_root.fd, ak_as_ptr(root->main_root));
         seg->sz = sz;
-        seg->head = (ak_alloc_node*)mem;
+        seg->head = ak_ptr_cast(ak_alloc_node, mem);
         {// add to free list
             ak_alloc_node* hd = seg->head;
             ak_sz actualsize = (sz - sizeof(ak_alloc_node) - sizeof(ak_ca_segment));
@@ -497,7 +497,7 @@ ak_inline static void ak_ca_free(ak_ca_root* root, void* m)
         ak_free_list_node_unlink(fl);
         // actual size is in tocheck->previnfo
         AKMALLOC_ASSERT(tocheck->previnfo == ak_ca_to_sz(tocheck->currinfo));
-        ak_ca_segment* seg = (ak_ca_segment*)((char*)(tocheck + 1) + tocheck->previnfo);
+        ak_ca_segment* seg = ak_ptr_cast(ak_ca_segment, ((char*)(tocheck + 1) + tocheck->previnfo));
         AKMALLOC_ASSERT(tocheck->previnfo == (seg->sz - sizeof(ak_alloc_node) - sizeof(ak_ca_segment)));
         ak_ca_segment_unlink(seg);
         ak_ca_segment_link(seg, root->empty_root.fd, ak_as_ptr(root->empty_root));

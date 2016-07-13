@@ -57,4 +57,6 @@ For more information, please refer to <http://unlicense.org/>
 
 #define ak_as_ptr(x) (&(x))
 
+#define ak_ptr_cast(ty, expr) ((ty*)((void*)(expr)))
+
 #endif/*AKMALLOC_CONSTANTS_H*/

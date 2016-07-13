@@ -415,13 +415,13 @@ static void* ak_aligned_alloc_from_state_no_checks(ak_malloc_state* m, size_t al
     }
 
     mem = (char*)ak_ca_alloc(ca, req);
-    ak_alloc_node* node = ((ak_alloc_node*)mem) - 1;
+    ak_alloc_node* node = ak_ptr_cast(ak_alloc_node, mem) - 1;
     if (ak_likely(mem)) {
         if ((((ak_sz)mem) & (aln - 1)) != 0) {
             // misaligned
             AK_CA_LOCK_ACQUIRE(ca);
             char* alnpos = (char*)(((ak_sz)(mem + aln - 1)) & ~(aln - 1));
-            ak_alloc_node* alnnode = ((ak_alloc_node*)alnpos) - 1;
+            ak_alloc_node* alnnode = ak_ptr_cast(ak_alloc_node, alnpos) - 1;
             AKMALLOC_ASSERT((ak_sz)(alnpos - mem) >= (sizeof(ak_free_list_node) + sizeof(ak_alloc_node)));
             ak_sz actsz = ak_ca_to_sz(node->currinfo);
             int islast = ak_ca_is_last(node);

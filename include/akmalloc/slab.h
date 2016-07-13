@@ -171,7 +171,7 @@ ak_inline static ak_sz ak_num_pages_for_sz(ak_sz sz)
 ak_inline static ak_slab* ak_slab_new_init(char* mem, ak_sz sz, ak_sz navail, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
     ak_slab_init(mem, sz, navail, root);
-    ak_slab* slab = (ak_slab*)mem;
+    ak_slab* slab = ak_ptr_cast(ak_slab, mem);
     ak_slab_link(slab, fd, bk);
     return slab;
 }
@@ -190,7 +190,7 @@ static ak_slab* ak_slab_new_alloc(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_ro
 
     char* cmem = mem;
     for (int i = 0; i < NPAGES - 1; ++i) {
-        ak_slab* nextpage = (ak_slab*)(cmem + AKMALLOC_DEFAULT_PAGE_SIZE);
+        ak_slab* nextpage = ak_ptr_cast(ak_slab, (cmem + AKMALLOC_DEFAULT_PAGE_SIZE));
         ak_slab* curr = ak_slab_new_init(cmem, sz, navail, nextpage, bk, root);
         AKMALLOC_ASSERT(ak_bitset512_num_trailing_ones(&(curr->avail)) == (int)navail);
         (void)curr;
@@ -200,7 +200,7 @@ static ak_slab* ak_slab_new_alloc(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_ro
 
     ak_slab_new_init(cmem, sz, navail, fd, bk, root);
 
-    return (ak_slab*)mem;
+    return ak_ptr_cast(ak_slab, mem);
 }
 
 static ak_slab* ak_slab_new_reuse(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
