@@ -52,7 +52,7 @@ add_test_exe    (tMallocPerf tMallocPerf.cpp)
 test_link_libs  (tMallocPerf ${to_link})
 test_create     (tMallocPerf)
 
-add_definitions (-DUSE_MALLOC=1)
 add_test_exe    (tMallocPerfRef tMallocPerf.cpp)
+add_comp_def    (tMallocPerfRef -DUSE_MALLOC=1)
 test_link_libs  (tMallocPerfRef )
 test_create     (tMallocPerfRef)
