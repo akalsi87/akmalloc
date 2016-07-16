@@ -61,29 +61,103 @@ For more information, please refer to <http://unlicense.org/>
 #endif
 
 /**
- * gets pointer to segment, and size of segment.
- * return non-zero to keep continuing
+ * Gets a pointer to a memory segment and its size.
+ * \param p; Pointer to segment memory.
+ * \param sz; Number of bytes in the segment.
+ * 
+ * \return \c 0 to stop iteration, non-zero to continue.
  */
-typedef int(*ak_seg_cbk)(const void*, size_t);
+typedef int(*ak_seg_cbk)(const void* p, size_t sz);
 #define AK_SEG_CBK_DEFINED
 
 AK_EXTERN_C_BEGIN
 
-AKMALLOC_EXPORT void*  ak_malloc(size_t);
-AKMALLOC_EXPORT void*  ak_calloc(size_t, size_t);
-AKMALLOC_EXPORT void   ak_free(void*);
-AKMALLOC_EXPORT void*  ak_memalign(size_t, size_t);
-AKMALLOC_EXPORT void*  ak_realloc(void*, size_t);
-AKMALLOC_EXPORT size_t ak_malloc_usable_size(const void*);
+/*!
+ * Attempt to allocate memory containing at least \p n bytes.
+ * \param n; The size for the allocation
+ *
+ * \return \c 0 on failure, else pointer to at least \p n bytes of memory.
+ */
+AKMALLOC_EXPORT void*  ak_malloc(size_t n);
 
-AKMALLOC_EXPORT void*  ak_aligned_alloc(size_t, size_t);
-AKMALLOC_EXPORT int    ak_posix_memalign(void**, size_t, size_t);
+/*!
+ * Attempt to allocate zeroed memory, containing at least \p n x \p s bytes.
+ * \param n; Number of objects to zero.
+ * \param s; The size for each object.
+ *
+ * \return \c 0 on failure, else pointer to at least \p s bytes of memory.
+ */
+AKMALLOC_EXPORT void*  ak_calloc(size_t n, size_t s);
 
-AKMALLOC_EXPORT void   ak_malloc_for_each_segment(ak_seg_cbk);
+/*!
+ * Return memory to the allocator.
+ * \param p; Pointer to the memory to return.
+ */
+AKMALLOC_EXPORT void   ak_free(void* p);
+
+/*!
+ * Return the usable size of the memory region pointed to by \p p.
+ * \param p; Pointer to the memory to determize size of.
+ *
+ * \return The number of bytes that can be written to in the region.
+ */
+AKMALLOC_EXPORT size_t ak_malloc_usable_size(const void* p);
+
+/*!
+ * Attempt to grow memory at the region pointed to by \p p to a size \p newsz.
+ * \param p; Memory to grow
+ * \param newsz; New size to grow to
+ *
+ * This function will copy the old bytes to a new memory location if the old memory cannot be
+ * grown in place, and will free the old memory. If no more memory is available it will not
+ * destroy the old memory.
+ *
+ * \return \c NULL if no memory is available, or a pointer to memory with at least \p newsz bytes.
+ */
+AKMALLOC_EXPORT void*  ak_realloc(void* p, size_t newsz);
+
+/*!
+ * Attempt to allocate memory containing at least \p n bytes at an address which is
+ * a multiple of \p aln. \p aln must be a power of two.
+ * \param aln; The alignment
+ * \param sz; The size for the allocation
+ *
+ * \return \c 0 on failure, else pointer to at least \p n bytes of memory at an aligned address.
+ */
+AKMALLOC_EXPORT void*  ak_memalign(size_t aln, size_t sz);
+
+/*!
+ * Attempt to allocate memory containing at least \p n bytes at an address which is
+ * a multiple of \p aln. \p aln must be a power of two. \p sz must be a multiple of \p aln.
+ * \param aln; The alignment
+ * \param sz; The size for the allocation
+ *
+ * \return \c 0 on failure, else pointer to at least \p n bytes of memory at an aligned address.
+ */
+AKMALLOC_EXPORT void*  ak_aligned_alloc(size_t aln, size_t sz);
+
+/*!
+ * Attempt to allocate memory containing at least \p n bytes at an address which is
+ * a multiple of \p aln and assign the address to \p *pptr. \p aln must be a power of two and
+ * a multiple of \c sizeof(void*).
+ * \param pptr; The address where the memory address should be writted.
+ * \param aln; The alignment
+ * \param sz; The size for the allocation
+ *
+ * \return \c 0 on success, 12 if no more memory is available, and 22 if \p aln was not a power
+ * of two and a multiple of \c sizeof(void*)
+ */
+AKMALLOC_EXPORT int    ak_posix_memalign(void** pptr, size_t aln, size_t sz);
+
+/*!
+ * Iterate over all memory segments allocated.
+ * \param cbk; Callback that is given the address of a segment and its size. \see ak_seg_cbk.
+ */
+AKMALLOC_EXPORT void   ak_malloc_for_each_segment(ak_seg_cbk cbk);
 
 AK_EXTERN_C_END
 
-#if defined(AKMALLOC_LINK_STATIC) || defined(AKMALLOC_INCLUDE_ONLY)
+#if defined(AKMALLOC_INCLUDE_ONLY)
 #  include "akmalloc/malloc.c"
 #endif
 

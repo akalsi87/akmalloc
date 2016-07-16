@@ -53,17 +53,6 @@ For more information, please refer to <http://unlicense.org/>
 #  error "AKMALLOC_MMAP and AKMALLOC_MUNMAP not defined simultaneously."
 #endif
 
-#if !defined(AKMALLOC_LARGE_BLOCK_SIZE)
-#  define AKMALLOC_LARGE_BLOCK_SIZE AKMALLOC_DEFAULT_LARGE_BLOCK_SIZE
-#endif
-
-/***********************************************
- * IMPLEMENTATION
- ***********************************************/
-
-// #define ak_offsetof(ty, field) (ak_sz)(((ty *)0)->field)
-// #define ak_pagealign(sz) (ak_sz)(((sz) + AKMALLOC_DEFAULT_PAGE_SIZE - 1) & (AKMALLOC_DEFAULT_PAGE_SIZE - 1))
-
 /***********************************************
  * OS Allocation
  ***********************************************/

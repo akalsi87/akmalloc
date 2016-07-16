@@ -65,8 +65,11 @@ For more information, please refer to <http://unlicense.org/>
 
 #if !defined(AK_SEG_CBK_DEFINED)
 /**
- * gets pointer to segment, and size of segment.
- * return non-zero to keep continuing
+ * Gets a pointer to a memory segment and its size.
+ * \param p; Pointer to segment memory.
+ * \param sz; Number of bytes in the segment.
+ * 
+ * \return \c 0 to stop iteration, non-zero to continue.
  */
 typedef int(*ak_seg_cbk)(const void*, size_t);
 #endif
@@ -146,6 +149,9 @@ static void ak_memcpy(void* d, const void* s, ak_sz sz)
 
 #define NSLABS 16
 
+/*!
+ * Sizes for the slabs in an \c ak_malloc_state
+ */
 static const ak_sz SLAB_SIZES[NSLABS] = {
     16,   32,   48,   64,   80,   96,  112,  128,
    144,  160,  176,  192,  208,  224,  240,  256
@@ -153,61 +159,37 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
 
 #define NCAROOTS 8
 
+/*!
+ * Sizes for the coalescing allocators in an \c ak_malloc_state
+ *
+ * Size here denotes maximum size request for each allocator.
+ */
 static const ak_sz CA_SIZES[NCAROOTS] = {
     768, 1408, 2048, 4096, 8192, 16384, 65536, MMAP_SIZE
 };
 
 typedef struct ak_malloc_state_tag ak_malloc_state;
 
+/*!
+ * Private malloc like allocator
+ */
 struct ak_malloc_state_tag
 {
-    ak_sz         init;
-    ak_slab_root  slabs[NSLABS];
-    ak_ca_root    ca[NCAROOTS];
-    ak_ca_segment map_root;
+    ak_sz         init;             /**< whether initialized */
+    ak_slab_root  slabs[NSLABS];    /**< slabs of different sizes */
+    ak_ca_root    ca[NCAROOTS];     /**< coalescing allocators of different size ranges */
+    ak_ca_segment map_root;         /**< root of list of mmap-ed segments */
 
-    AKMALLOC_LOCK_DEFINE(MAP_LOCK);
+    AKMALLOC_LOCK_DEFINE(MAP_LOCK); /**< lock for mmap-ed regions if locks are enabled */
 };
 
 #if !defined(AKMALLOC_COALESCING_ALLOC_RELEASE_RATE)
 #  define AKMALLOC_COALESCING_ALLOC_RELEASE_RATE 24
 #endif
 
-static void ak_malloc_init_state(ak_malloc_state* s)
-{
-    AKMALLOC_ASSERT_ALWAYS(sizeof(ak_slab) % AK_COALESCE_ALIGN == 0);
-
-    for (ak_sz i = 0; i != NSLABS; ++i) {
-        ak_slab_init_root_default(ak_as_ptr(s->slabs[i]), SLAB_SIZES[i]);
-    }
-
-    for (ak_sz i = 0; i != NCAROOTS; ++i) {
-        ak_ca_init_root(ak_as_ptr(s->ca[i]), AKMALLOC_COALESCING_ALLOC_RELEASE_RATE, AKMALLOC_COALESCING_ALLOC_RELEASE_RATE);
-    }
-
-    ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
-
-    AKMALLOC_LOCK_INIT(ak_as_ptr(s->MAP_LOCK));
-    s->init = 1;
-}
-
-static void ak_malloc_destroy_state(ak_malloc_state* m)
-{
-    for (ak_sz i = 0; i < NSLABS; ++i) {
-        ak_slab_destroy(ak_as_ptr(m->slabs[i]));
-    }
-    for (ak_sz i = 0; i < NCAROOTS; ++i) {
-        ak_ca_destroy(ak_as_ptr(m->ca[i]));
-    }
-    {// mmaped chunks
-        ak_ca_segment temp;
-        ak_circ_list_for_each(ak_ca_segment, seg, &(m->map_root)) {
-            temp = *seg;
-            ak_os_free(seg, seg->sz);
-            seg = &temp;
-        }
-    }
-}
+#if !defined(AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE)
+#  define AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE AKMALLOC_COALESCING_ALLOC_RELEASE_RATE
+#endif
 
 static void ak_try_reclaim_memory(ak_malloc_state* m)
 {
@@ -281,27 +263,6 @@ ak_inline static ak_ca_root* ak_find_ca_root(ak_malloc_state* m, ak_sz sz)
     return ak_as_ptr(m->ca[i]);
 }
 
-ak_inline static size_t ak_malloc_usable_size_in_state(const void* mem)
-{
-    if (ak_likely(mem)) {
-        ak_sz ty = ak_alloc_type_bits(mem);
-        if (ak_alloc_type_slab(ty)) {
-            // round to page
-            const ak_slab* slab = (const ak_slab*)(ak_page_start_before_const(mem));
-            return ak_slab_usable_size(slab->root->sz);
-        } else if (ak_alloc_type_mmap(ty)) {
-            return (((const ak_ca_segment*)mem) - 1)->sz - sizeof(ak_ca_segment);
-        } else {
-            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
-            const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
-            AKMALLOC_ASSERT(!ak_ca_is_free(n->currinfo));
-            return ak_ca_to_sz(n->currinfo);
-        }
-    } else {
-        return 0;
-    }
-}
-
 ak_inline static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
 {
     void* retmem = AK_NULLPTR;
@@ -324,101 +285,6 @@ ak_inline static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
     return retmem;
 }
 
-static void* ak_malloc_from_state(ak_malloc_state* m, size_t sz)
-{
-    AKMALLOC_ASSERT(m->init);
-    void* mem = ak_try_alloc(m, sz);
-    if (ak_unlikely(!mem)) {
-        ak_try_reclaim_memory(m);
-        mem = ak_try_alloc(m, sz);
-    }
-    return mem;
-}
-
-ak_inline static void ak_free_to_state(ak_malloc_state* m, void* mem)
-{
-    if (ak_likely(mem)) {
-#if defined(AKMALLOC_DEBUG_PRINT)
-        ak_sz ussize = ak_malloc_usable_size_in_state(mem);
-#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
-        ak_sz ty = ak_alloc_type_bits(mem);
-        if (ak_alloc_type_slab(ty)) {
-            DBG_PRINTF("d,slab,%p,%llu\n", mem, ussize);
-            ak_slab_free(ak_slab_mem_2_alloc(mem));
-        } else if (ak_alloc_type_mmap(ty)) {
-            DBG_PRINTF("d,mmap,%p,%llu\n", mem, ussize);
-            AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->MAP_LOCK));
-            ak_ca_segment* seg = ((ak_ca_segment*)mem) - 1;
-            ak_ca_segment_unlink(seg);
-            ak_os_free(seg, seg->sz);
-            AKMALLOC_LOCK_RELEASE(ak_as_ptr(m->MAP_LOCK));
-        } else {
-            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
-            const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
-            const ak_sz alnsz = ak_ca_to_sz(n->currinfo);
-            ak_ca_root* proot = ak_find_ca_root(m, alnsz);
-            DBG_PRINTF("d,ca[%d],%p,%llu\n", (int)(proot-ak_as_ptr(m->ca[0])), mem, alnsz);
-            ak_ca_free(proot, mem);
-        }
-    }
-}
-
-ak_inline static void* ak_realloc_in_place_from_state(ak_malloc_state* m, void* mem, size_t newsz)
-{
-    const ak_sz usablesize = ak_malloc_usable_size_in_state(mem);
-    if (usablesize >= newsz) {
-        return mem;
-    }
-    if (ak_alloc_type_coalesce(ak_alloc_type_bits(mem))) {
-        ak_alloc_node* n = ak_ptr_cast(ak_alloc_node, mem) - 1;
-        AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
-        // check if there is a free next, if so, maybe merge
-        ak_sz sz = ak_ca_to_sz(n->currinfo);
-        ak_ca_root* proot = ak_find_ca_root(m, sz);
-        ak_alloc_node* next = ak_ca_next_node(n);
-        if (next && ak_ca_is_free(next->currinfo)) {
-            AKMALLOC_ASSERT(n->currinfo == next->previnfo);
-            ak_sz nextsz = ak_ca_to_sz(next->currinfo);
-            ak_sz totalsz = nextsz + sz + sizeof(ak_alloc_node);
-            if (totalsz >= newsz) {
-                AK_CA_LOCK_ACQUIRE(proot);
-
-                // we could remember the prev and next free entries and link them
-                // back if the freed size is larger and we split the new node
-                // but we assume that reallocs are rare and that one realloc may get more
-                // so we try to keep it simple here, and simply merge the two
-
-                ak_free_list_node_unlink((ak_free_list_node*)(next + 1));
-                // don't need to change attributes on next as it is goind away
-                if (ak_ca_is_last(next->currinfo)) {
-                    ak_ca_set_is_last(ak_as_ptr(n->currinfo), 1);
-                }
-                ak_ca_set_sz(ak_as_ptr(n->currinfo), totalsz);
-                ak_ca_update_footer(n);
-
-                AK_CA_LOCK_RELEASE(proot);
-            }
-        }
-    }
-    return AK_NULLPTR;
-}
-
-static void* ak_realloc_from_state(ak_malloc_state* m, void* mem, size_t newsz)
-{
-    if (ak_realloc_in_place_from_state(m, mem, newsz)) {
-        return mem;
-    }
-
-    void* newmem = ak_malloc_from_state(m, newsz);
-    if (!newmem) {
-        return AK_NULLPTR;
-    }
-    if (ak_likely(mem)) {
-        ak_memcpy(newmem, mem, ak_malloc_usable_size_in_state(mem));
-        ak_free_to_state(m, mem);
-    }
-    return newmem;
-}
 
 static void* ak_aligned_alloc_from_state_no_checks(ak_malloc_state* m, size_t aln, size_t sz)
 {
@@ -458,6 +324,202 @@ static void* ak_aligned_alloc_from_state_no_checks(ak_malloc_state* m, size_t al
     return AK_NULLPTR;
 }
 
+/**************************************************************/
+/* P U B L I C                                                */
+/**************************************************************/
+
+/*!
+ * Initialize a private malloc like allocator.
+ * \param s; Pointer to the allocator to initialize (non-NULL)
+ */
+static void ak_malloc_init_state(ak_malloc_state* s)
+{
+    AKMALLOC_ASSERT_ALWAYS(sizeof(ak_slab) % AK_COALESCE_ALIGN == 0);
+
+    for (ak_sz i = 0; i != NSLABS; ++i) {
+        ak_slab_init_root_default(ak_as_ptr(s->slabs[i]), SLAB_SIZES[i]);
+    }
+
+    for (ak_sz i = 0; i != NCAROOTS; ++i) {
+        ak_ca_init_root(ak_as_ptr(s->ca[i]), AKMALLOC_COALESCING_ALLOC_RELEASE_RATE, AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
+    }
+
+    ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
+
+    AKMALLOC_LOCK_INIT(ak_as_ptr(s->MAP_LOCK));
+    s->init = 1;
+}
+
+/*!
+ * Destroy the private malloc like allocator and return all memory to the OS.
+ * \param m; Pointer to the allocator
+ */
+static void ak_malloc_destroy_state(ak_malloc_state* m)
+{
+    for (ak_sz i = 0; i < NSLABS; ++i) {
+        ak_slab_destroy(ak_as_ptr(m->slabs[i]));
+    }
+    for (ak_sz i = 0; i < NCAROOTS; ++i) {
+        ak_ca_destroy(ak_as_ptr(m->ca[i]));
+    }
+    {// mmaped chunks
+        ak_ca_segment temp;
+        ak_circ_list_for_each(ak_ca_segment, seg, &(m->map_root)) {
+            temp = *seg;
+            ak_os_free(seg, seg->sz);
+            seg = &temp;
+        }
+    }
+}
+
+/*!
+ * Attempt to allocate memory containing at least \p n bytes.
+ * \param m; The allocator
+ * \param sz; The size for the allocation
+ *
+ * \return \c 0 on failure, else pointer to at least \p n bytes of memory.
+ */
+static void* ak_malloc_from_state(ak_malloc_state* m, size_t sz)
+{
+    AKMALLOC_ASSERT(m->init);
+    void* mem = ak_try_alloc(m, sz);
+    if (ak_unlikely(!mem)) {
+        ak_try_reclaim_memory(m);
+        mem = ak_try_alloc(m, sz);
+    }
+    return mem;
+}
+
+/*!
+ * Return memory to the allocator.
+ * \param m; The allocator
+ * \param mem; Pointer to the memory to return.
+ */
+ak_inline static void ak_free_to_state(ak_malloc_state* m, void* mem)
+{
+    if (ak_likely(mem)) {
+#if defined(AKMALLOC_DEBUG_PRINT)
+        ak_sz ussize = ak_malloc_usable_size_in_state(mem);
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
+        ak_sz ty = ak_alloc_type_bits(mem);
+        if (ak_alloc_type_slab(ty)) {
+            DBG_PRINTF("d,slab,%p,%llu\n", mem, ussize);
+            ak_slab_free(ak_slab_mem_2_alloc(mem));
+        } else if (ak_alloc_type_mmap(ty)) {
+            DBG_PRINTF("d,mmap,%p,%llu\n", mem, ussize);
+            AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->MAP_LOCK));
+            ak_ca_segment* seg = ((ak_ca_segment*)mem) - 1;
+            ak_ca_segment_unlink(seg);
+            ak_os_free(seg, seg->sz);
+            AKMALLOC_LOCK_RELEASE(ak_as_ptr(m->MAP_LOCK));
+        } else {
+            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
+            const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
+            const ak_sz alnsz = ak_ca_to_sz(n->currinfo);
+            ak_ca_root* proot = ak_find_ca_root(m, alnsz);
+            DBG_PRINTF("d,ca[%d],%p,%llu\n", (int)(proot-ak_as_ptr(m->ca[0])), mem, alnsz);
+            ak_ca_free(proot, mem);
+        }
+    }
+}
+
+/*!
+ * Attempt to grow memory at the region pointed to by \p p to a size \p newsz without relocation.
+ * \param m; The allocator
+ * \param mem; Memory to grow
+ * \param newsz; New size to grow to
+ *
+ * \return \c NULL if no memory is available, or \p mem with at least \p newsz bytes.
+ */
+ak_inline static void* ak_realloc_in_place_from_state(ak_malloc_state* m, void* mem, size_t newsz)
+{
+    const ak_sz usablesize = ak_malloc_usable_size_in_state(mem);
+    if (usablesize >= newsz) {
+        return mem;
+    }
+    if (ak_alloc_type_coalesce(ak_alloc_type_bits(mem))) {
+        ak_alloc_node* n = ak_ptr_cast(ak_alloc_node, mem) - 1;
+        AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
+        // check if there is a free next, if so, maybe merge
+        ak_sz sz = ak_ca_to_sz(n->currinfo);
+        ak_ca_root* proot = ak_find_ca_root(m, sz);
+        if (ak_ca_realloc_in_place(proot, mem, newsz)) {
+            return mem;
+        }
+    }
+    return AK_NULLPTR;
+}
+
+/*!
+ * Attempt to grow memory at the region pointed to by \p p to a size \p newsz.
+ * \param m; The allocator
+ * \param mem; Memory to grow
+ * \param newsz; New size to grow to
+ *
+ * This function will copy the old bytes to a new memory location if the old memory cannot be
+ * grown in place, and will free the old memory. If no more memory is available it will not
+ * destroy the old memory.
+ *
+ * \return \c NULL if no memory is available, or a pointer to memory with at least \p newsz bytes.
+ */
+static void* ak_realloc_from_state(ak_malloc_state* m, void* mem, size_t newsz)
+{
+    if (ak_unlikely(!mem)) {
+        return ak_malloc_from_state(m, newsz);
+    }
+
+    if (ak_realloc_in_place_from_state(m, mem, newsz)) {
+        return mem;
+    }
+
+    void* newmem = ak_malloc_from_state(m, newsz);
+    if (!newmem) {
+        return AK_NULLPTR;
+    }
+    if (ak_likely(mem)) {
+        ak_memcpy(newmem, mem, ak_malloc_usable_size_in_state(mem));
+        ak_free_to_state(m, mem);
+    }
+    return newmem;
+}
+
+
+/*!
+ * Return the usable size of the memory region pointed to by \p p.
+ * \param mem; Pointer to the memory to determize size of.
+ *
+ * \return The number of bytes that can be written to in the region.
+ */
+ak_inline static size_t ak_malloc_usable_size_in_state(const void* mem)
+{
+    if (ak_likely(mem)) {
+        ak_sz ty = ak_alloc_type_bits(mem);
+        if (ak_alloc_type_slab(ty)) {
+            // round to page
+            const ak_slab* slab = (const ak_slab*)(ak_page_start_before_const(mem));
+            return ak_slab_usable_size(slab->root->sz);
+        } else if (ak_alloc_type_mmap(ty)) {
+            return (((const ak_ca_segment*)mem) - 1)->sz - sizeof(ak_ca_segment);
+        } else {
+            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
+            const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
+            AKMALLOC_ASSERT(!ak_ca_is_free(n->currinfo));
+            return ak_ca_to_sz(n->currinfo);
+        }
+    } else {
+        return 0;
+    }
+}
+
+/*!
+ * Attempt to allocate memory containing at least \p n bytes at an address which is
+ * a multiple of \p aln. \p aln must be a power of two. \p sz must be a multiple of \p aln.
+ * \param m; The allocator
+ * \param aln; The alignment
+ * \param sz; The size for the allocation
+ *
+ * \return \c 0 on failure, else pointer to at least \p n bytes of memory at an aligned address.
+ */
 static void* ak_aligned_alloc_from_state(ak_malloc_state* m, size_t aln, size_t sz)
 {
     if (aln <= AK_COALESCE_ALIGN) {
@@ -476,6 +538,18 @@ static void* ak_aligned_alloc_from_state(ak_malloc_state* m, size_t aln, size_t 
 #define AK_EINVAL 22
 #define AK_ENOMEM 12
 
+/*!
+ * Attempt to allocate memory containing at least \p n bytes at an address which is
+ * a multiple of \p aln and assign the address to \p *pmem. \p aln must be a power of two and
+ * a multiple of \c sizeof(void*).
+ * \param m; The allocator
+ * \param pmem; The address where the memory address should be writted.
+ * \param aln; The alignment
+ * \param sz; The size for the allocation
+ *
+ * \return \c 0 on success, 12 if no more memory is available, and 22 if \p aln was not a power
+ * of two and a multiple of \c sizeof(void*)
+ */
 static int ak_posix_memalign_from_state(ak_malloc_state* m, void** pmem, size_t aln, size_t sz)
 {
     void* mem = AK_NULLPTR;
@@ -499,6 +573,11 @@ static int ak_posix_memalign_from_state(ak_malloc_state* m, void** pmem, size_t 
     return 0;
 }
 
+/*!
+ * Iterate over all memory segments allocated.
+ * \param m; The allocator
+ * \param cbk; Callback that is given the address of a segment and its size. \see ak_seg_cbk.
+ */
 static void ak_malloc_for_each_segment_in_state(ak_malloc_state* m, ak_seg_cbk cbk)
 {
     // for each slab, reclaim empty pages

@@ -104,21 +104,25 @@ struct ak_ca_segment_tag
     ak_alloc_node* head;
 };
 
+/*!
+ * The root for a coalescing allocator.
+ */
 struct ak_ca_root_tag
 {
-    ak_ca_segment main_root;
-    ak_ca_segment empty_root;
+    ak_ca_segment main_root;        /**< root of non empty segments */
+    ak_ca_segment empty_root;       /**< root of empty segments */
 
-    ak_free_list_node free_root;
+    ak_free_list_node free_root;    /**< root of the free list */
 
-    ak_u32 nempty;
-    ak_u32 release;
+    ak_u32 nempty;                  /**< number of empty segments */
+    ak_u32 release;                 /**< number of segments freed since last release */
 
-    ak_u32 RELEASE_RATE;
-    ak_u32 MAX_SEGMENTS_TO_FREE;
-    ak_sz MIN_SIZE_TO_SPLIT;
+    ak_u32 RELEASE_RATE;            /**< release rate for this root */
+    ak_u32 MAX_SEGMENTS_TO_FREE;    /**< number of segments to free when release is done */
+    ak_sz MIN_SIZE_TO_SPLIT;        /**< minimum size of split node to decide whether to 
+                                         split a free list node */
 
-    AK_CA_LOCK_DEFINE(LOCKED);
+    AK_CA_LOCK_DEFINE(LOCKED);      /**< lock for this allocator if locks are enabled */
 };
 
 /**************************************************************/
@@ -366,6 +370,12 @@ static ak_u32 ak_ca_return_os_mem(ak_ca_segment* r, ak_u32 num)
 /* P U B L I C                                                */
 /**************************************************************/
 
+/*!
+ * Initialize a coalescing allocator.
+ * \param root; Pointer to the allocator root to initialize (non-NULL)
+ * \param relrate; Release rate, \ref akmallocDox
+ * \param maxsegstofree; Number of segments to free upon release, \ref akmallocDox
+ */
 static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofree)
 {
     AKMALLOC_ASSERT_ALWAYS(AK_COALESCE_SEGMENT_SIZE % AK_COALESCE_SEGMENT_GRANULARITY == 0);
@@ -382,6 +392,10 @@ static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofr
     AK_CA_LOCK_INIT(root);
 }
 
+/*!
+ * Default initialize a coalescing allocator.
+ * \param root; Pointer to the allocator root to initialize (non-NULL)
+ */
 ak_inline static void ak_ca_init_root_default(ak_ca_root* root)
 {
 #if AKMALLOC_BITNESS == 32
@@ -392,6 +406,60 @@ ak_inline static void ak_ca_init_root_default(ak_ca_root* root)
     ak_ca_init_root(root, rate, rate);
 }
 
+/*!
+ * Attempt to grow an existing allocation.
+ * \param root; Pointer to the allocator root
+ * \param mem; Existing memory to grow
+ * \param newsz; The new size for the allocation
+ *
+ * \return \c 0 on failure, and \p mem on success which can hold at least \p newsz bytes.
+ */
+ak_inline static void* ak_ca_realloc_in_place(ak_ca_root* root, void* mem, ak_sz newsz)
+{
+    void* retmem = AK_NULLPTR;
+
+    ak_alloc_node* n = ak_ptr_cast(ak_alloc_node, mem) - 1;
+    AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
+    // check if there is a free next, if so, maybe merge
+    ak_sz sz = ak_ca_to_sz(n->currinfo);
+
+    ak_alloc_node* next = ak_ca_next_node(n);
+    if (next && ak_ca_is_free(next->currinfo)) {
+        AKMALLOC_ASSERT(n->currinfo == next->previnfo);
+        ak_sz nextsz = ak_ca_to_sz(next->currinfo);
+        ak_sz totalsz = nextsz + sz + sizeof(ak_alloc_node);
+        if (totalsz >= newsz) {
+            AK_CA_LOCK_ACQUIRE(root);
+
+            // we could remember the prev and next free entries and link them
+            // back if the freed size is larger and we split the new node
+            // but we assume that reallocs are rare and that one realloc may get more
+            // so we try to keep it simple here, and simply merge the two
+
+            ak_free_list_node_unlink((ak_free_list_node*)(next + 1));
+            // don't need to change attributes on next as it is goind away
+            if (ak_ca_is_last(next->currinfo)) {
+                ak_ca_set_is_last(ak_as_ptr(n->currinfo), 1);
+            }
+            ak_ca_set_sz(ak_as_ptr(n->currinfo), totalsz);
+            ak_ca_update_footer(n);
+
+            retmem = mem;
+
+            AK_CA_LOCK_RELEASE(root);
+        }
+    }
+
+    return retmem;
+}
+
+/*!
+ * Attempt to allocate memory from the coalescing allocator root.
+ * \param root; Pointer to the allocator root
+ * \param s; The size for the allocation
+ *
+ * \return \c 0 on failure, else pointer to at least \p s bytes of memory.
+ */
 static void* ak_ca_alloc(ak_ca_root* root, ak_sz s)
 {
     // align and round size
@@ -412,6 +480,11 @@ static void* ak_ca_alloc(ak_ca_root* root, ak_sz s)
     return mem;
 }
 
+/*!
+ * Return memory to the coalescing allocator root.
+ * \param root; Pointer to the allocator root
+ * \param m; The memory to return.
+ */
 ak_inline static void ak_ca_free(ak_ca_root* root, void* m)
 {
     // get alloc header before
@@ -514,6 +587,10 @@ ak_inline static void ak_ca_free(ak_ca_root* root, void* m)
     AK_CA_LOCK_RELEASE(root);
 }
 
+/*!
+ * Destroy the coalescing allocator root and return all memory to the OS.
+ * \param root; Pointer to the allocator root
+ */
 static void ak_ca_destroy(ak_ca_root* root)
 {
     ak_ca_return_os_mem(ak_as_ptr(root->main_root), AK_U32_MAX);

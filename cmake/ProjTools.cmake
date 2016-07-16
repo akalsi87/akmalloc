@@ -103,11 +103,7 @@ set(PROJ_INCLUDE_DIR ${PROJ_DIR}/include)
 set(PROJ_INSTALL_BIN_DIR bin)
 set(PROJ_INSTALL_LIB_DIR lib)
 set(PROJ_INSTALL_INC_DIR include)
-if(WIN32)
-  set(PROJ_INSTALL_SHARE_DIR .)
-else()
-  set(PROJ_INSTALL_SHARE_DIR share/${PROJ_NAME})
-endif()
+set(PROJ_INSTALL_SHARE_DIR share/${PROJ_NAME})
 
 if (DEFINED ENV{INSTALL_BASE_DIR})
   set(PROJ_INSTALL_DIR $ENV{INSTALL_BASE_DIR})
@@ -139,6 +135,9 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 string(COMPARE EQUAL ${CMAKE_C_COMPILER_ID} "Clang" is_clang)
 string(COMPARE EQUAL ${CMAKE_C_COMPILER_ID} "MSVC" is_msvc)
+
+initvar(PROJ_USE_LTO)
+
 if(is_msvc)
   set(USING_MSVC TRUE CACHE STRING "Using MSVC")
   if(PROJ_USE_LTO)
@@ -180,7 +179,8 @@ endif()
 
 # -- Code coverage defines
 initvar(USE_CODE_COV)
-if (NOT USE_CODE_COV)
+string(COMPARE EQUAL "${USE_CODE_COV}" "" is_code_cov_unspec)
+if (is_code_cov_unspec)
   string(COMPARE EQUAL "$ENV{USE_CODE_COV}" "" is_code_cov_unspec)
   if (is_code_cov_unspec)
     # is config Debug?
