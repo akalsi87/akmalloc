@@ -286,27 +286,73 @@ ak_inline static void* ak_try_alloc_mmap(ak_malloc_state* m, size_t sz)
     return mem;
 }
 
+ak_inline static size_t ak_malloc_usable_size_in_state(const void* mem)
+{
+    if (ak_likely(mem)) {
+        ak_sz ty = ak_alloc_type_bits(mem);
+        if (ak_alloc_type_slab(ty)) {
+            // round to page
+            const ak_slab* slab = (const ak_slab*)(ak_page_start_before_const(mem));
+            return ak_slab_usable_size(slab->root->sz);
+        } else if (ak_alloc_type_mmap(ty)) {
+            return (((const ak_ca_segment*)mem) - 1)->sz - sizeof(ak_ca_segment);
+        } else {
+            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
+            const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
+            AKMALLOC_ASSERT(!ak_ca_is_free(n->currinfo));
+            return ak_ca_to_sz(n->currinfo);
+        }
+    } else {
+        return 0;
+    }
+}
+
+#if !defined(AKMALLOC_DEBUG_PRINT)
+// #  define AKMALLOC_DEBUG_PRINT
+#endif
+
+#if defined(AKMALLOC_DEBUG_PRINT)
+#  define DBG_PRINTF(...) fprintf(stderr, __VA_ARGS__)
+#else
+#  define DBG_PRINTF(...) (void)0
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
+
 static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
 {
     void* retmem = AK_NULLPTR;
     ak_sz modsz = ak_slab_mod_sz(sz);
     if (modsz <= MIN_SMALL_REQUEST) {
         retmem = ak_try_slab_alloc(m, modsz);
+        DBG_PRINTF("a,slab,%p,%llu\n", retmem, modsz);
     } else if (sz < MMAP_SIZE) {
+#if defined(AKMALLOC_DEBUG_PRINT)
+        const char* ty = "";
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
         const ak_sz alnsz = ak_ca_aligned_size(sz);
         ak_ca_root* proot = AK_NULLPTR;
         if (alnsz < MIN_MEDIUM_REQUEST) {
             proot = ak_as_ptr(m->casmall);
+#if defined(AKMALLOC_DEBUG_PRINT)
+            ty = "casmall";
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
         } else if (alnsz < MIN_LARGE_REQUEST) {
             proot = ak_as_ptr(m->camedium);
+#if defined(AKMALLOC_DEBUG_PRINT)
+            ty = "camedium";
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
         } else {
             proot = ak_as_ptr(m->calarge);
+#if defined(AKMALLOC_DEBUG_PRINT)
+            ty = "calarge";
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
         }
         retmem = ak_try_coalesce_alloc(m, proot, alnsz);
+        DBG_PRINTF("a,%s,%p,%llu\n", ty, retmem, alnsz);
     } else {
         sz += sizeof(ak_ca_segment);
         const ak_sz actsz = ak_ca_aligned_segment_size(sz);
         retmem = ak_try_alloc_mmap(m, actsz);
+        DBG_PRINTF("a,mmap,%p,%llu\n", retmem, actsz);
     }
 
     return retmem;
@@ -326,10 +372,15 @@ static void* ak_malloc_from_state(ak_malloc_state* m, size_t sz)
 ak_inline static void ak_free_to_state(ak_malloc_state* m, void* mem)
 {
     if (ak_likely(mem)) {
+#if defined(AKMALLOC_DEBUG_PRINT)
+        ak_sz ussize = ak_malloc_usable_size_in_state(mem);
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
         ak_sz ty = ak_alloc_type_bits(mem);
         if (ak_alloc_type_slab(ty)) {
             ak_slab_free(ak_slab_mem_2_alloc(mem));
+            DBG_PRINTF("d,slab,%p,%llu\n", mem, ussize);
         } else if (ak_alloc_type_mmap(ty)) {
+            DBG_PRINTF("d,mmap,%p,%llu\n", mem, ussize);
             AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->MAP_LOCK));
             ak_ca_segment* seg = ((ak_ca_segment*)mem) - 1;
             ak_ca_segment_unlink(seg);
@@ -340,36 +391,28 @@ ak_inline static void ak_free_to_state(ak_malloc_state* m, void* mem)
             const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
             const ak_sz alnsz = ak_ca_to_sz(n->currinfo);
             ak_ca_root* proot = AK_NULLPTR;
+#if defined(AKMALLOC_DEBUG_PRINT)
+            const char* ty = "";
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
             if (alnsz < MIN_MEDIUM_REQUEST) {
                 proot = ak_as_ptr(m->casmall);
+#if defined(AKMALLOC_DEBUG_PRINT)
+                ty = "casmall";
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
             } else if (alnsz < MIN_LARGE_REQUEST) {
                 proot = ak_as_ptr(m->camedium);
+#if defined(AKMALLOC_DEBUG_PRINT)
+                ty = "camedium";
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
             } else {
                 proot = ak_as_ptr(m->calarge);
+#if defined(AKMALLOC_DEBUG_PRINT)
+                ty = "calarge";
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
             }
+            DBG_PRINTF("d,%s,%p,%llu\n", ty, mem, ussize);
             ak_ca_free(proot, mem);
         }
-    }
-}
-
-ak_inline static size_t ak_malloc_usable_size_in_state(const void* mem)
-{
-    if (ak_likely(mem)) {
-        ak_sz ty = ak_alloc_type_bits(mem);
-        if (ak_alloc_type_slab(ty)) {
-            // round to page
-            const ak_slab* slab = (const ak_slab*)(ak_page_start_before_const(mem));
-            return ak_slab_usable_size(slab->root->sz);
-        } else if (ak_alloc_type_mmap(ty)) {
-            return (((const ak_ca_segment*)mem) - 1)->sz - sizeof(ak_ca_segment);
-        } else {
-            AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
-            const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
-            AKMALLOC_ASSERT(!ak_ca_is_free(n->currinfo));
-            return ak_ca_to_sz(n->currinfo);
-        }
-    } else {
-        return 0;
     }
 }
 
