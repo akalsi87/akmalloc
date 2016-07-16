@@ -252,7 +252,7 @@ ak_inline static void ak_ca_update_footer(ak_alloc_node* p)
 
 #define ak_ca_aligned_segment_size(x) (((x) + (AK_COALESCE_SEGMENT_SIZE) - 1) & ~((AK_COALESCE_SEGMENT_SIZE) - 1))
 
-static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz, ak_sz splitsz)
+ak_inline static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz, ak_sz splitsz)
 {
     AKMALLOC_ASSERT(splitsz >= sizeof(ak_free_list_node));
     AKMALLOC_ASSERT(splitsz % AK_COALESCE_ALIGN == 0);
