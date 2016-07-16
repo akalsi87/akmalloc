@@ -61,4 +61,14 @@ For more information, please refer to <http://unlicense.org/>
 #  define AKMALLOC_ASSERT_ALWAYS AKMALLOC_ASSERT_IMPL
 #endif
 
+#if !defined(AKMALLOC_DEBUG_PRINT)
+// #  define AKMALLOC_DEBUG_PRINT
+#endif
+
+#if defined(AKMALLOC_DEBUG_PRINT)
+#  define DBG_PRINTF(...) fprintf(stdout, __VA_ARGS__); fflush(stdout)
+#else
+#  define DBG_PRINTF(...) (void)0
+#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
+
 #endif/*AKMALLOC_ASSERT_H*/

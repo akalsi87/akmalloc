@@ -91,11 +91,7 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
         while (ak_atomic_xchg(&(p->islocked), 1)) {
             if ((++spins & SPINS_PER_YIELD) == 0) {
 #if AKMALLOC_MACOS || AKMALLOC_IOS
-                if ((spins >> 4) & 1) {
-                    ak_os_sleep(40);
-                } else {
-                    ak_spinlock_yield();
-                }
+                ak_os_sleep(40);
 #else
                 ak_spinlock_yield();
 #endif

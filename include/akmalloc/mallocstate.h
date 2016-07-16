@@ -116,13 +116,6 @@ static void ak_memcpy(void* d, const void* s, ak_sz sz)
 #define ak_alloc_mark_mmap(p) \
   *(((ak_sz*)(p)) - 1) = ((ak_sz)9)
 
-#define NSLABS 16
-
-static const ak_sz SLAB_SIZES[NSLABS] = {
-    16,   32,   48,   64,   80,   96,  112,  128,
-   144,  160,  176,  192,  208,  224,  240,  256
-};
-
 #if defined(AK_MIN_SLAB_ALIGN_16)
 #  define ak_slab_mod_sz(x) (ak_ca_aligned_size((x)) + AK_COALESCE_ALIGN)
 #  define ak_slab_alloc_2_mem(x) (((ak_sz*)x) + (AK_COALESCE_ALIGN / sizeof(ak_sz)))
@@ -138,14 +131,6 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
 /* cannot be changed. we have fixed size slabs */
 #define MIN_SMALL_REQUEST 256
 
-#if !defined(MIN_MEDIUM_REQUEST)
-#  define MIN_MEDIUM_REQUEST 16384
-#endif
-
-#if !defined(MIN_LARGE_REQUEST)
-#  define MIN_LARGE_REQUEST 65536
-#endif
-
 #if !defined(MMAP_SIZE)
 #  if !AKMALLOC_WINDOWS
 #    define MMAP_SIZE (AK_SZ_ONE << 20) /* 1 MB */
@@ -158,44 +143,47 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
 #  endif
 #endif
 
+
+#define NSLABS 16
+
+static const ak_sz SLAB_SIZES[NSLABS] = {
+    16,   32,   48,   64,   80,   96,  112,  128,
+   144,  160,  176,  192,  208,  224,  240,  256
+};
+
+#define NCAROOTS 8
+
+static const ak_sz CA_SIZES[NCAROOTS] = {
+    768, 1408, 2048, 4096, 8192, 16384, 65536, MMAP_SIZE
+};
+
 typedef struct ak_malloc_state_tag ak_malloc_state;
 
 struct ak_malloc_state_tag
 {
-    ak_sz init;
-    ak_slab_root slabs[NSLABS];
-    ak_ca_root   casmall;
-    ak_ca_root   camedium;
-    ak_ca_root   calarge;
+    ak_sz         init;
+    ak_slab_root  slabs[NSLABS];
+    ak_ca_root    ca[NCAROOTS];
     ak_ca_segment map_root;
 
     AKMALLOC_LOCK_DEFINE(MAP_LOCK);
 };
 
-#if !defined(AKMALLOC_SMALL_ALLOC_RELEASE_RATE)
-#  define AKMALLOC_SMALL_ALLOC_RELEASE_RATE 2047
-#endif
-#if !defined(AKMALLOC_MEDIUM_ALLOC_RELEASE_RATE)
-#  define AKMALLOC_MEDIUM_ALLOC_RELEASE_RATE 511
-#endif
-#if !defined(AKMALLOC_LARGE_ALLOC_RELEASE_RATE)
-#  define AKMALLOC_LARGE_ALLOC_RELEASE_RATE 63
+#if !defined(AKMALLOC_COALESCING_ALLOC_RELEASE_RATE)
+#  define AKMALLOC_COALESCING_ALLOC_RELEASE_RATE 24
 #endif
 
 static void ak_malloc_init_state(ak_malloc_state* s)
 {
     AKMALLOC_ASSERT_ALWAYS(sizeof(ak_slab) % AK_COALESCE_ALIGN == 0);
+
     for (ak_sz i = 0; i != NSLABS; ++i) {
         ak_slab_init_root_default(ak_as_ptr(s->slabs[i]), SLAB_SIZES[i]);
     }
-    ak_ca_init_root(ak_as_ptr(s->casmall), AKMALLOC_SMALL_ALLOC_RELEASE_RATE, AKMALLOC_SMALL_ALLOC_RELEASE_RATE);
-    s->casmall.MIN_SIZE_TO_SPLIT = MIN_SMALL_REQUEST;
 
-    ak_ca_init_root(ak_as_ptr(s->camedium), AKMALLOC_MEDIUM_ALLOC_RELEASE_RATE, AKMALLOC_MEDIUM_ALLOC_RELEASE_RATE);
-    s->camedium.MIN_SIZE_TO_SPLIT = MIN_MEDIUM_REQUEST;
-
-    ak_ca_init_root(ak_as_ptr(s->calarge), AKMALLOC_LARGE_ALLOC_RELEASE_RATE, AKMALLOC_LARGE_ALLOC_RELEASE_RATE);
-    s->calarge.MIN_SIZE_TO_SPLIT = MIN_LARGE_REQUEST;
+    for (ak_sz i = 0; i != NCAROOTS; ++i) {
+        ak_ca_init_root(ak_as_ptr(s->ca[i]), AKMALLOC_COALESCING_ALLOC_RELEASE_RATE, AKMALLOC_COALESCING_ALLOC_RELEASE_RATE);
+    }
 
     ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
 
@@ -208,9 +196,9 @@ static void ak_malloc_destroy_state(ak_malloc_state* m)
     for (ak_sz i = 0; i < NSLABS; ++i) {
         ak_slab_destroy(ak_as_ptr(m->slabs[i]));
     }
-    ak_ca_destroy(ak_as_ptr(m->casmall));
-    ak_ca_destroy(ak_as_ptr(m->camedium));
-    ak_ca_destroy(ak_as_ptr(m->calarge));
+    for (ak_sz i = 0; i < NCAROOTS; ++i) {
+        ak_ca_destroy(ak_as_ptr(m->ca[i]));
+    }
     {// mmaped chunks
         ak_ca_segment temp;
         ak_circ_list_for_each(ak_ca_segment, seg, &(m->map_root)) {
@@ -231,17 +219,12 @@ static void ak_try_reclaim_memory(ak_malloc_state* m)
         s->release = 0;
     }
     // return unused segments in ca
-    ak_ca_return_os_mem(ak_as_ptr(m->casmall.empty_root), AK_U32_MAX);
-    m->casmall.nempty = 0;
-    m->casmall.release = 0;
-    
-    ak_ca_return_os_mem(ak_as_ptr(m->camedium.empty_root), AK_U32_MAX);
-    m->camedium.nempty = 0;
-    m->camedium.release = 0;
-    
-    ak_ca_return_os_mem(ak_as_ptr(m->calarge.empty_root), AK_U32_MAX);
-    m->camedium.nempty = 0;
-    m->camedium.release = 0;
+    for (ak_sz i = 0; i < NCAROOTS; ++i) {
+        ak_ca_root* ca = ak_as_ptr(m->ca[i]);
+        ak_ca_return_os_mem(ak_as_ptr(ca->empty_root), AK_U32_MAX);
+        ca->nempty = 0;
+        ca->release = 0;
+    }
 
     // all memory in mmap-ed regions is being used. we return pages immediately
     // when they are free'd.
@@ -286,6 +269,18 @@ ak_inline static void* ak_try_alloc_mmap(ak_malloc_state* m, size_t sz)
     return mem;
 }
 
+ak_inline static ak_ca_root* ak_find_ca_root(ak_malloc_state* m, ak_sz sz)
+{
+    ak_sz i = 0;
+    for (; i < NCAROOTS; ++i) {
+        if (CA_SIZES[i] >= sz) {
+            break;
+        }
+    }
+    AKMALLOC_ASSERT(i < NCAROOTS);
+    return ak_as_ptr(m->ca[i]);
+}
+
 ak_inline static size_t ak_malloc_usable_size_in_state(const void* mem)
 {
     if (ak_likely(mem)) {
@@ -307,17 +302,7 @@ ak_inline static size_t ak_malloc_usable_size_in_state(const void* mem)
     }
 }
 
-#if !defined(AKMALLOC_DEBUG_PRINT)
-// #  define AKMALLOC_DEBUG_PRINT
-#endif
-
-#if defined(AKMALLOC_DEBUG_PRINT)
-#  define DBG_PRINTF(...) fprintf(stderr, __VA_ARGS__)
-#else
-#  define DBG_PRINTF(...) (void)0
-#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
-
-static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
+ak_inline static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
 {
     void* retmem = AK_NULLPTR;
     ak_sz modsz = ak_slab_mod_sz(sz);
@@ -325,29 +310,10 @@ static void* ak_try_alloc(ak_malloc_state* m, size_t sz)
         retmem = ak_try_slab_alloc(m, modsz);
         DBG_PRINTF("a,slab,%p,%llu\n", retmem, modsz);
     } else if (sz < MMAP_SIZE) {
-#if defined(AKMALLOC_DEBUG_PRINT)
-        const char* ty = "";
-#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
         const ak_sz alnsz = ak_ca_aligned_size(sz);
-        ak_ca_root* proot = AK_NULLPTR;
-        if (alnsz < MIN_MEDIUM_REQUEST) {
-            proot = ak_as_ptr(m->casmall);
-#if defined(AKMALLOC_DEBUG_PRINT)
-            ty = "casmall";
-#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
-        } else if (alnsz < MIN_LARGE_REQUEST) {
-            proot = ak_as_ptr(m->camedium);
-#if defined(AKMALLOC_DEBUG_PRINT)
-            ty = "camedium";
-#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
-        } else {
-            proot = ak_as_ptr(m->calarge);
-#if defined(AKMALLOC_DEBUG_PRINT)
-            ty = "calarge";
-#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
-        }
+        ak_ca_root* proot = ak_find_ca_root(m, sz);
         retmem = ak_try_coalesce_alloc(m, proot, alnsz);
-        DBG_PRINTF("a,%s,%p,%llu\n", ty, retmem, alnsz);
+        DBG_PRINTF("a,ca[%d],%p,%llu\n", (int)(proot-ak_as_ptr(m->ca[0])), retmem, alnsz);
     } else {
         sz += sizeof(ak_ca_segment);
         const ak_sz actsz = ak_ca_aligned_segment_size(sz);
@@ -377,8 +343,8 @@ ak_inline static void ak_free_to_state(ak_malloc_state* m, void* mem)
 #endif/*defined(AKMALLOC_DEBUG_PRINT)*/
         ak_sz ty = ak_alloc_type_bits(mem);
         if (ak_alloc_type_slab(ty)) {
-            ak_slab_free(ak_slab_mem_2_alloc(mem));
             DBG_PRINTF("d,slab,%p,%llu\n", mem, ussize);
+            ak_slab_free(ak_slab_mem_2_alloc(mem));
         } else if (ak_alloc_type_mmap(ty)) {
             DBG_PRINTF("d,mmap,%p,%llu\n", mem, ussize);
             AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(m->MAP_LOCK));
@@ -390,27 +356,8 @@ ak_inline static void ak_free_to_state(ak_malloc_state* m, void* mem)
             AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
             const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
             const ak_sz alnsz = ak_ca_to_sz(n->currinfo);
-            ak_ca_root* proot = AK_NULLPTR;
-#if defined(AKMALLOC_DEBUG_PRINT)
-            const char* ty = "";
-#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
-            if (alnsz < MIN_MEDIUM_REQUEST) {
-                proot = ak_as_ptr(m->casmall);
-#if defined(AKMALLOC_DEBUG_PRINT)
-                ty = "casmall";
-#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
-            } else if (alnsz < MIN_LARGE_REQUEST) {
-                proot = ak_as_ptr(m->camedium);
-#if defined(AKMALLOC_DEBUG_PRINT)
-                ty = "camedium";
-#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
-            } else {
-                proot = ak_as_ptr(m->calarge);
-#if defined(AKMALLOC_DEBUG_PRINT)
-                ty = "calarge";
-#endif/*defined(AKMALLOC_DEBUG_PRINT)*/
-            }
-            DBG_PRINTF("d,%s,%p,%llu\n", ty, mem, ussize);
+            ak_ca_root* proot = ak_find_ca_root(m, alnsz);
+            DBG_PRINTF("d,ca[%d],%p,%llu\n", (int)(proot-ak_as_ptr(m->ca[0])), mem, alnsz);
             ak_ca_free(proot, mem);
         }
     }
@@ -422,24 +369,37 @@ ak_inline static void* ak_realloc_in_place_from_state(ak_malloc_state* m, void* 
     if (usablesize >= newsz) {
         return mem;
     }
-    // if (ak_alloc_type_coalesce(ak_alloc_type_bits(mem))) {
-    //     AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
-    //     // check if there is a free next, if so, maybe merge
-    //     ak_alloc_node* n = ak_ptr_cast(ak_alloc_node, mem) - 1;
-    //     ak_sz sz = ak_ca_to_sz(n->currinfo);
-    //     ak_alloc_node* next = ak_ca_next_node(n);
-    //     if (next && ak_ca_is_free(next->currinfo)) {
-    //         AKMALLOC_ASSERT(n->currinfo == next->previnfo);
-    //         ak_sz nextsz = ak_ca_to_sz(next->currinfo);
-    //         ak_sz totalsz = nextsz + sz + sizeof(ak_alloc_node);
-    //         if (totalsz >= newsz) {
-    //             AK_CA_LOCK_ACQUIRE()
-    //             // unlink next from the free list
-    //             // grow node
-    //             AK_CA_LOCK_RELEASE()
-    //         }
-    //     }
-    // }
+    if (ak_alloc_type_coalesce(ak_alloc_type_bits(mem))) {
+        AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
+        // check if there is a free next, if so, maybe merge
+        ak_alloc_node* n = ak_ptr_cast(ak_alloc_node, mem) - 1;
+        ak_sz sz = ak_ca_to_sz(n->currinfo);
+        ak_ca_root* proot = ak_find_ca_root(m, sz);
+        ak_alloc_node* next = ak_ca_next_node(n);
+        if (next && ak_ca_is_free(next->currinfo)) {
+            AKMALLOC_ASSERT(n->currinfo == next->previnfo);
+            ak_sz nextsz = ak_ca_to_sz(next->currinfo);
+            ak_sz totalsz = nextsz + sz + sizeof(ak_alloc_node);
+            if (totalsz >= newsz) {
+                AK_CA_LOCK_ACQUIRE(proot);
+
+                // we could remember the prev and next free entries and link them
+                // back if the freed size is larger and we split the new node
+                // but we assume that reallocs are rare and that one realloc may get more
+                // so we try to keep it simple here, and simply merge the two
+
+                ak_free_list_node_unlink((ak_free_list_node*)(next + 1));
+                // don't need to change attributes on next as it is goind away
+                if (ak_ca_is_last(next->currinfo)) {
+                    ak_ca_set_is_last(ak_as_ptr(n->currinfo), 1);
+                }
+                ak_ca_set_sz(ak_as_ptr(n->currinfo), totalsz);
+                ak_ca_update_footer(n);
+
+                AK_CA_LOCK_RELEASE(proot);
+            }
+        }
+    }
     return AK_NULLPTR;
 }
 
@@ -466,14 +426,7 @@ static void* ak_aligned_alloc_from_state_no_checks(ak_malloc_state* m, size_t al
     req += aln + (2 * sizeof(ak_alloc_node)) + (2 * sizeof(ak_free_list_node));
     char* mem = AK_NULLPTR;
     // must request from coalesce alloc so we can return the extra piece
-    ak_ca_root* ca = AK_NULLPTR;
-    if (aln < MIN_MEDIUM_REQUEST) {
-        ca = ak_as_ptr(m->casmall);
-    } else if (aln < MIN_LARGE_REQUEST) {
-        ca = ak_as_ptr(m->camedium);
-    } else {
-        ca = ak_as_ptr(m->calarge);
-    }
+    ak_ca_root* ca = ak_find_ca_root(m, req);
 
     mem = (char*)ak_ca_alloc(ca, req);
     ak_alloc_node* node = ak_ptr_cast(ak_alloc_node, mem) - 1;
@@ -563,27 +516,16 @@ static void ak_malloc_for_each_segment_in_state(ak_malloc_state* m, ak_seg_cbk c
         }
     }
 
-    {// ca small
-        ak_circ_list_for_each(ak_ca_segment, seg, &(m->casmall.main_root)) {
-            if (!cbk(seg->head, seg->sz)) {
-                return;
+    {// ca roots
+        for (ak_sz i = 0; i < NCAROOTS; ++i) {
+            ak_circ_list_for_each(ak_ca_segment, seg, &(m->ca[i].main_root)) {
+                if (!cbk(seg->head, seg->sz)) {
+                    return;
+                }
             }
         }
     }
-    {// ca medium
-        ak_circ_list_for_each(ak_ca_segment, seg, &(m->camedium.main_root)) {
-            if (!cbk(seg->head, seg->sz)) {
-                return;
-            }
-        }
-    }
-    {// ca large
-        ak_circ_list_for_each(ak_ca_segment, seg, &(m->calarge.main_root)) {
-            if (!cbk(seg->head, seg->sz)) {
-                return;
-            }
-        }
-    }
+
     {// mmaped chunks
         ak_circ_list_for_each(ak_ca_segment, seg, &(m->map_root)) {
             if (!cbk(seg, seg->sz)) {

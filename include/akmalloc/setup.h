@@ -73,11 +73,14 @@ static void* ak_os_alloc(size_t sz)
     static const ak_sz pgsz = AKMALLOC_DEFAULT_PAGE_SIZE;
     (void)(pgsz);
     AKMALLOC_ASSERT_ALWAYS(pgsz == ak_page_size());
-    return AKMALLOC_MMAP(sz);
+    void* mem = AKMALLOC_MMAP(sz);
+    DBG_PRINTF("osmap,%p,%zu,%zu pages,iswhole %d\n", mem, sz, sz/AKMALLOC_DEFAULT_PAGE_SIZE, sz == AKMALLOC_DEFAULT_PAGE_SIZE*(sz/AKMALLOC_DEFAULT_PAGE_SIZE));
+    return mem;
 }
 
 static void ak_os_free(void* p, size_t sz)
 {
+    DBG_PRINTF("osunmap,%p,%zu\n", p, sz);
     AKMALLOC_MUNMAP(p, sz);
 }
 
