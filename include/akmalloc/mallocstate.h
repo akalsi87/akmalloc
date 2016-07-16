@@ -370,9 +370,9 @@ ak_inline static void* ak_realloc_in_place_from_state(ak_malloc_state* m, void* 
         return mem;
     }
     if (ak_alloc_type_coalesce(ak_alloc_type_bits(mem))) {
+        ak_alloc_node* n = ak_ptr_cast(ak_alloc_node, mem) - 1;
         AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
         // check if there is a free next, if so, maybe merge
-        ak_alloc_node* n = ak_ptr_cast(ak_alloc_node, mem) - 1;
         ak_sz sz = ak_ca_to_sz(n->currinfo);
         ak_ca_root* proot = ak_find_ca_root(m, sz);
         ak_alloc_node* next = ak_ca_next_node(n);
