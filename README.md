@@ -1,1 +1,1 @@
-[Documentation] (https://rawgit.com/akalsi87/akmalloc/tree/1.0.1/_layouts/index.html)
+[Documentation] (https://rawgit.com/akalsi87/akmalloc/1.0.1/_layouts/index.html)
