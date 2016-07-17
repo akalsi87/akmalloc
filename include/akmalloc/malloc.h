@@ -36,9 +36,6 @@ For more information, please refer to <http://unlicense.org/>
 /* We only include this to get size_t */
 #include <stddef.h>
 
-#include "akmalloc/rc.h"
-#include "akmalloc/types.h"
-
 #if !defined(AKMALLOC_USE_PREFIX) || !AKMALLOC_USE_PREFIX
 #  define ak_malloc                   malloc
 #  define ak_calloc                   calloc
@@ -52,12 +49,7 @@ For more information, please refer to <http://unlicense.org/>
 #endif
 
 #if !defined(AKMALLOC_EXPORT)
-#  if !defined(AKMALLOC_INCLUDE_ONLY)
-#    include "akmalloc/exportsym.h"
-#    define AKMALLOC_EXPORT AKMALLOC_API
-#  else
-#    define AKMALLOC_EXPORT
-#  endif
+#  define AKMALLOC_EXPORT extern
 #endif
 
 /**
