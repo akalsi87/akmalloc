@@ -324,6 +324,8 @@ static void* ak_aligned_alloc_from_state_no_checks(ak_malloc_state* m, size_t al
     return AK_NULLPTR;
 }
 
+ak_inline static size_t ak_malloc_usable_size_in_state(const void* mem);
+
 /**************************************************************/
 /* P U B L I C                                                */
 /**************************************************************/
