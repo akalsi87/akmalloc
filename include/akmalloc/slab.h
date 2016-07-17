@@ -67,22 +67,25 @@ struct ak_slab_tag
     void*         _unused;
 };
 
+/*!
+ * Slab allocator
+ */
 struct ak_slab_root_tag
 {
-    ak_u32 sz;
-    ak_u32 npages;
-    ak_u32 navail;
-    ak_u32 nempty;
-    ak_u32 release;
-    ak_u32 _unused;
+    ak_u32 sz;                      /**< the size of elements in this slab */
+    ak_u32 npages;                  /**< number of pages to obtain from the OS */
+    ak_u32 navail;                  /**< max number of available bits for the slab size \p sz */
+    ak_u32 nempty;                  /**< number of empty pages */
+    ak_u32 release;                 /**< number of accumulated free empty pages since last release */
+    ak_u32 _unused;                 /**< for alignment */
 
-    ak_slab partial_root;
-    ak_slab full_root;
-    ak_slab empty_root;
+    ak_slab partial_root;           /**< root of the partially filled slab list*/
+    ak_slab full_root;              /**< root of the full slab list */
+    ak_slab empty_root;             /**< root of the empty slab list */
 
-    ak_u32 RELEASE_RATE;
-    ak_u32 MAX_PAGES_TO_FREE;
-    AK_SLAB_LOCK_DEFINE(LOCKED);
+    ak_u32 RELEASE_RATE;            /**< number of pages moved to empty before a release */
+    ak_u32 MAX_PAGES_TO_FREE;       /**< number of pages to free when release happens */
+    AK_SLAB_LOCK_DEFINE(LOCKED);    /**< lock for this allocator if locks are enabled */
 };
 
 #if !defined(AK_SLAB_RELEASE_RATE)
@@ -305,6 +308,14 @@ ak_inline static void ak_slab_release_os_mem(ak_slab_root* root)
 /* P U B L I C                                                */
 /**************************************************************/
 
+/*!
+ * Initialize a slab allocator.
+ * \param s; Pointer to the allocator root to initialize (non-NULL)
+ * \param sz; Size of the slab elements (maximum allowed is 4000)
+ * \param npages; Number of pages to allocate from the OS at once.
+ * \param relrate; Release rate, \ref akmallocDox
+ * \param maxpagefree; Number of segments to free upon release, \ref akmallocDox
+ */
 static void ak_slab_init_root(ak_slab_root* s, ak_sz sz, ak_u32 npages, ak_u32 relrate, ak_u32 maxpagefree)
 {
     s->sz = (ak_u32)sz;
@@ -322,11 +333,22 @@ static void ak_slab_init_root(ak_slab_root* s, ak_sz sz, ak_u32 npages, ak_u32 r
     AK_SLAB_LOCK_INIT(s);
 }
 
+/*!
+ * Default initialize a slab allocator.
+ * \param s; Pointer to the allocator root to initialize (non-NULL)
+ * \param sz; Size of the slab elements (maximum allowed is 4000)
+ */
 ak_inline static void ak_slab_init_root_default(ak_slab_root* s, ak_sz sz)
 {
     ak_slab_init_root(s, sz, (ak_u32)ak_num_pages_for_sz(sz), (ak_u32)(AK_SLAB_RELEASE_RATE), (ak_u32)(AK_SLAB_MAX_PAGES_TO_FREE));
 }
 
+/*!
+ * Attempt to allocate memory from the slab allocator root.
+ * \param root; Pointer to the allocator root
+ *
+ * \return \c 0 on failure, else pointer to at least \p root->sz bytes of memory.
+ */
 ak_inline static void* ak_slab_alloc(ak_slab_root* root)
 {
     int ntz = 0;
@@ -354,6 +376,10 @@ ak_inline static void* ak_slab_alloc(ak_slab_root* root)
     return mem;
 }
 
+/*!
+ * Return memory to the slab allocator root.
+ * \param p; Pointer to the memory to return.
+ */
 ak_inline static void ak_slab_free(void* p)
 {
     char* mem = (char*)p;
@@ -389,6 +415,10 @@ ak_inline static void ak_slab_free(void* p)
     AK_SLAB_LOCK_RELEASE(root);
 }
 
+/*!
+ * Destroy the slab allocator root and return all memory to the OS.
+ * \param root; Pointer to the allocator root
+ */
 static void ak_slab_destroy(ak_slab_root* root)
 {
     ak_slab_release_pages(root, &(root->empty_root), AK_U32_MAX);

@@ -33,11 +33,11 @@ For more information, please refer to <http://unlicense.org/>
 #ifndef AKMALLOC_MALLOC_C
 #define AKMALLOC_MALLOC_C
 
-#if defined(AKMALLOC_USE_LOCKS)
+#if !defined(AKMALLOC_USE_LOCKS) || AKMALLOC_USE_LOCKS
 #  define AK_MALLOCSTATE_USE_LOCKS
 #endif
 
-#if !defined(AKMALLOC_LINK_STATIC) && !defined(AKMALLOC_INCLUDE_ONLY)
+#if !defined(AKMALLOC_INCLUDE_ONLY)
 #  include "akmalloc/malloc.h"
 #endif
 

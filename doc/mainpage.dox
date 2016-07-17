@@ -1,0 +1,73 @@
+/*!
+ * \mainpage akmalloc - A customizable memory allocator
+ *
+ * \section intro Introduction
+ *
+ * <tt><a href="https://github.com/akalsi87/akmalloc">akmalloc</a></tt> is a customizable memory allocator and its constituent parts. It can be a drop in
+ * replacement for \p malloc() and \p free() in many cases, and is composed of slabs
+ * and coalescing allocators.
+ *
+ * The inspiration and motivation for this library comes from <tt><a href="ftp://gee.oswego.edu/pub/misc/malloc.c">dlmalloc</a></tt>.
+ *
+ * The goals for this library are:
+ *
+ * 1. Easy to read and maintain.
+ *
+ * 2. Be more memory conserving.
+ *
+ * 3. High efficiency and good performance.
+ *
+ * 4. Portability.
+ *
+ *
+ * The constituent parts of malloc are:
+ *
+ * 1. \ref slaballoc
+ *
+ * 2. \ref caalloc
+ *
+ * For the \p malloc() implementation see \ref akmallocDox
+ *
+ * \section releases Releases page
+ *
+ * <a href="https://github.com/akalsi87/akmalloc/releases">Link</a>
+ *
+ * \section build Build instructions
+ *
+ * The recommended way to build <tt>akmalloc</tt> and use it is to download the source directly.
+ *
+ * You may then decide to either build a library or include it directly into your source code.
+ *
+ * <h3> Requirements </h3>
+ *
+ * 1. CMake 3.0
+ * 2. A recent version of GCC, Clang, or MSVC. Although akmalloc has been qualified on these
+ *    compilers, if you face issues raise a ticket <a href="https://github.com/akalsi87/akmalloc/issues">here</a>.
+ *
+ * \section buildInclude Building by includes only
+ *
+ * \code{.sh}
+ * git clone https://github.com/akalsi87/akmalloc && cd akmalloc
+ * env AKMALLOC_INCLUDE_ONLY=1 tools/install Release
+ * \endcode
+ *
+ * You will find the resulting files under <tt>install/</tt>.
+ *
+ * \section buildStatic Building static library
+ *
+ * \code{.sh}
+ * git clone https://github.com/akalsi87/akmalloc && cd akmalloc
+ * env AKMALLOC_LINK_STATIC=1 tools/install Release
+ * \endcode
+ *
+ * You will find the resulting files under <tt>install/</tt>.
+ *
+ * \section buildShared Building shared library
+ *
+ * \code{.sh}
+ * git clone https://github.com/akalsi87/akmalloc && cd akmalloc
+ * env AKMALLOC_LIBRARY=1 tools/install Release
+ * \endcode
+ *
+ * You will find the resulting files under <tt>install/</tt>.
+ */

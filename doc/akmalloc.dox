@@ -1,0 +1,98 @@
+/*!
+ *
+ * \page akmallocDox <tt>akmalloc</tt>
+ *
+ * <tt>akmalloc</tt> is a composite allocator, combining slabs and coalescing allocators.
+ *
+ * It uses a static <tt>ak_malloc_state</tt>.
+ *
+ * All the exported APIs are based on \p ak_malloc_state.
+ *
+ * It uses an array of slabs of sizes from 8B to 256B, an array of coalescing allocators ranging
+ * in size from 768B to 1MB and directly uses OS calls beyond that size.
+ *
+ * It handles multi threading by having a lock per slab or coalescing allocator, or OS calls.
+ * Multiple threads that allocate or free a size in a different size category do not contend
+ * with each other. 
+ *
+ * By default shared and static libraries have a thread safe malloc and free.
+ *
+ * Every allocation has a 8B header which contains a distinct bit mask allowing the allocator
+ * to classify it.
+ *
+ * \code{.cpp}
+ * ---0      Coalescing allocator with fourth bit unset always
+ * 0101      Slab allocator
+ * 1001      mmap()
+ * \endcode 
+ *
+ * \see akmalloc/mallocstate.h
+ * \see akmalloc/malloc.h
+ * \see akmalloc/malloc.c
+ *
+ * \section customMalloc Customizing akmalloc, ak_malloc_state, ak_slab_root and ak_ca_root
+ *
+ * The following defines are available for use while building (or including if your build is only
+ * directly including the header files). They are marked as controlling one or more options.
+ *
+ * It is better to define these before including any <tt>akmalloc</tt> header files.
+ *
+ * \code{.cpp}
+ * // controls whether the symbols available are malloc/free etc. or ak_malloc/ak_free...
+ * // works for ak_malloc
+ * #define AKMALLOC_USE_PREFIX // [0 | 1]
+ *
+ * // controls the symbol visibility of APIs, default chosen based on build type
+ * // works for ak_malloc
+ * #define AKMALLOC_EXPORT // chosen based on build type
+ *
+ * // controls the assert macro to use
+ * // works with all APIs when built in debug mode (NDEBUG is not defined)
+ * #define AKMALLOC_ASSERT_IMPL // default: custom assert macro
+ *
+ * // whether to use locks for malloc()/free()
+ * // works for ak_malloc
+ * #define AKMALLOC_USE_LOCKS [0 | 1] // defaults to 1 for libraries
+ *
+ * // whether to use locks for ak_malloc_from_state() variety of APIs
+ * // including malloc.h directly will set this based on AKMALLOC_USE_LOCKS
+ * // works for ak_malloc_state
+ * #define AK_MALLOCSTATE_USE_LOCKS // defined or undefined, default is undefined
+ *
+ * // whether to always align allocations at 16 byte boundaries, slabs can do 8
+ * // works for ak_malloc_state and ak_malloc
+ * #define AK_MIN_SLAB_ALIGN_16 // defined or undefined, default is undefined
+ *
+ * // number of empty pages after which to free some
+ * // works for ak_slab, ak_malloc_state and ak_malloc
+ * #define AK_SLAB_RELEASE_RATE // default: 127
+ *
+ * // number of empty pages to free after a release is reached
+ * // works for ak_slab, ak_malloc_state and ak_malloc
+ * #define AK_SLAB_MAX_PAGES_TO_FREE // default: AK_SLAB_RELEASE_RATE
+ *
+ * // multiples of this size are used to obtain memory from the OS for coalescing allocators
+ * // works for ak_ca_root, ak_malloc_state and ak_malloc
+ * #define AK_COALESCE_SEGMENT_GRANULARITY // default is 256KB for ak_malloc and ak_malloc_state
+ *                                         // deafult is 64KB for ak_ca_root
+ *
+ * // number of empty segments after which to free them
+ * // works for ak_ca_root, ak_malloc_state and ak_malloc
+ * #define AKMALLOC_COALESCING_ALLOC_RELEASE_RATE // default: 24
+ *
+ * // number of segments to free after a release is required
+ * // works for ak_ca_root, ak_malloc_state and ak_malloc
+ * #define AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE // default: AKMALLOC_COALESCING_ALLOC_RELEASE_RATE
+ *
+ * // at what size to resort to using mmap() like system calls
+ * // works for ak_malloc_state and ak_malloc
+ * #define MMAP_SIZE // default is system determined, e.g. 65536
+ *
+ * // customize memory map calls
+ * // works for all APIs
+ * // signature for map:   void* (*map)(size_t s);              // return 0 on failure
+ * // signature for unmap: void  (*unmap)(void* mem, size_t s);
+ * #define AKMALLOC_MMAP   // default: system dependent
+ * #define AKMALLOC_MUNMAP // default: system dependent
+ * \endcode
+ */
