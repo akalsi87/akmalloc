@@ -244,7 +244,7 @@ typedef ak_i64 ak_ssz;
 
 #if !defined(NDEBUG)
 #  undef ak_inline
-#  define ak_inline static
+#  define ak_inline
 #endif
 
 #if AKMALLOC_MSVC
