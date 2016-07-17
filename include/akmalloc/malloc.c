@@ -197,12 +197,14 @@ For more information, please refer to <http://unlicense.org/>
 
 
 /********************** setup begin ************************/
-#if defined(__cplusplus)
-#  define AK_EXTERN_C_BEGIN extern "C"  {
-#  define AK_EXTERN_C_END   }/*extern C*/
-#else
-#  define AK_EXTERN_C_BEGIN
-#  define AK_EXTERN_C_END  
+#if !defined(AK_EXTERN_C_BEGIN)
+#  if defined(__cplusplus)
+#    define AK_EXTERN_C_BEGIN extern "C"  {
+#    define AK_EXTERN_C_END   }/*extern C*/
+#  else
+#    define AK_EXTERN_C_BEGIN
+#    define AK_EXTERN_C_END
+#  endif
 #endif
 
 #if !defined(AKMALLOC_INCLUDE_ONLY)
