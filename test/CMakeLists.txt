@@ -59,3 +59,13 @@ add_test_exe    (tMallocPerfRef tMallocPerf.cpp)
 add_comp_def    (tMallocPerfRef -DUSE_MALLOC=1)
 test_link_libs  (tMallocPerfRef )
 test_create     (tMallocPerfRef)
+
+add_test_exe    (btreeBench btreeBench.c)
+add_comp_def    (btreeBench ${compdef})
+test_link_libs  (btreeBench ${to_link})
+test_create     (btreeBench)
+
+add_test_exe    (btreeBenchRef btreeBench.c)
+add_comp_def    (btreeBenchRef -DUSE_MALLOC=1)
+test_link_libs  (btreeBenchRef )
+test_create     (btreeBenchRef)
