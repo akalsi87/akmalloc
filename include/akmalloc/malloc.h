@@ -62,6 +62,14 @@ For more information, please refer to <http://unlicense.org/>
 typedef int(*ak_seg_cbk)(const void* p, size_t sz);
 #define AK_SEG_CBK_DEFINED
 
+#if defined(__cplusplus)
+#  define AK_EXTERN_C_BEGIN extern "C"  {
+#  define AK_EXTERN_C_END   }/*extern C*/
+#else
+#  define AK_EXTERN_C_BEGIN
+#  define AK_EXTERN_C_END  
+#endif
+
 AK_EXTERN_C_BEGIN
 
 /*!
