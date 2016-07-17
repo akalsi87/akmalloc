@@ -1,1 +1,1 @@
-[Documentation] (_layouts/index.html)
+[Documentation] (http://htmlpreview.github.com/?_layouts/index.html)
