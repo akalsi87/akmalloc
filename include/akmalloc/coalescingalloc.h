@@ -437,12 +437,34 @@ ak_inline static void* ak_ca_realloc_in_place(ak_ca_root* root, void* mem, ak_sz
             // so we try to keep it simple here, and simply merge the two
 
             ak_free_list_node_unlink((ak_free_list_node*)(next + 1));
-            // don't need to change attributes on next as it is goind away
+            // don't need to change attributes on next as it is going away
             if (ak_ca_is_last(next->currinfo)) {
                 ak_ca_set_is_last(ak_as_ptr(n->currinfo), 1);
             }
             ak_ca_set_sz(ak_as_ptr(n->currinfo), totalsz);
             ak_ca_update_footer(n);
+
+            if ((totalsz - newsz) > root->MIN_SIZE_TO_SPLIT) {
+                // split and assign
+                ak_alloc_node* newnode = ak_ptr_cast(ak_alloc_node, (((char*)(n + 1)) + newsz));
+                int islast = ak_ca_is_last(n->currinfo);
+
+                ak_ca_set_sz(ak_as_ptr(n->currinfo), newsz);
+                ak_ca_set_is_last(ak_as_ptr(n->currinfo), 0);
+                ak_ca_set_is_free(ak_as_ptr(n->currinfo), 0);
+                ak_ca_update_footer(n);
+
+                ak_ca_set_sz(ak_as_ptr(newnode->currinfo), totalsz - newsz - sizeof(ak_alloc_node));
+                ak_ca_set_is_first(ak_as_ptr(newnode->currinfo), 0);
+                ak_ca_set_is_last(ak_as_ptr(newnode->currinfo), islast);
+                ak_ca_set_is_free(ak_as_ptr(newnode->currinfo), 1);
+                ak_ca_update_footer(newnode);
+                
+                // copy free list node from node
+                ak_free_list_node* fl = (ak_free_list_node*)(newnode + 1);
+                ak_free_list_node_link(fl, nextcopy.fd, nextcopy.bk);
+                AKMALLOC_ASSERT(n->currinfo == newnode->previnfo);
+            }
 
             retmem = mem;
 
