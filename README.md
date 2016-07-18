@@ -4,10 +4,10 @@ The inspiration and motivation for this library comes from <tt>dlmalloc</tt>.
 
 The goals for this library are:
 
-# Easy to read and maintain.
-# Be more memory conserving.
-# High efficiency and good performance.
-# Portability.
+* Easy to read and maintain.
+* Be more memory conserving.
+* High efficiency and good performance.
+* Portability.
 
 The source code is under <tt>include/</tt> and documentation artifacts are under <tt>doc/html/</tt>.
 
