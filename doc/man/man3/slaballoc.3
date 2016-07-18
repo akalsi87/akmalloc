@@ -1,0 +1,32 @@
+.TH "slaballoc" 3 "Sun Jul 17 2016" "akmalloc" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+slaballoc \- Slab allocator 
+Slabs are a concept borrowed from \fCJeff Bonwick's UseNIX paper \fP and adapted as a general implementation scheme\&.
+.PP
+The major departures from the scheme presented in Jeff's paper is that we don't keep the client-specified object APIs because we are using slabs to implement the plain old \fClibc\fP memory allocation routines which do not have this flexibility\&.
+.PP
+Nevertheless, slabs prove to be efficient and compact for dealing with memory\&.
+.PP
+Slabs are all page sized, and allocate a fixed size\&. They have a bit map at the head with some links to forward and back slabs\&. The slab bit map knows which indexes of fixed size entries are free and which are allocated\&. Allocating a new object is as simple as finding the first index of the unused bit in the bit map and flipping it\&. Freeing is also fast, because we mask out the pointer to get the page and in constant time we know which slab the pointer came from and we update the bit map\&.
+.PP
+Instead of using free lists which require more memory hops, we favour a bit mask at the head\&.
+.PP
+Slabs are held in chains with a root\&. This root has the meta data about the slab, like what fixed size it is allocating, how often do we return slab pages to the OS etc\&.
+.PP
+Slab roots have three lists of slabs
+.PP
+.IP "1." 4
+\fIPartial\fP: List of partially filled slabs\&.
+.IP "2." 4
+\fIFull\fP: List of completely full slabs\&.
+.IP "3." 4
+\fIEmpty\fP: List of completely empty slabs\&.
+.PP
+.PP
+This separation exists so that a slab root can get to an allocation in constant time by only checking the partial bins\&. As they fill up, the slab is moved to the full bin\&. If something in a full bin is freed, it is moved to the partial bin, and when all entries in a slab are free, it is moved to the empty bin\&.
+.PP
+When there are more than a user-settable number of empty slabs, the slab allocator will free another user-settable number of them\&. The default is for both number to be equal, which means every so often, a slab allocator will return all its free pages to the OS\&.
+.PP
+This allocator can be made thread safe upon request\&. 

@@ -1,0 +1,58 @@
+.TH "ak_malloc_state" 3 "Sun Jul 17 2016" "akmalloc" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+ak_malloc_state \- 
+.SH SYNOPSIS
+.br
+.PP
+.SS "Data Fields"
+
+.in +1c
+.ti -1c
+.RI "ak_sz \fBinit\fP"
+.br
+.ti -1c
+.RI "ak_slab_root \fBslabs\fP [16]"
+.br
+.ti -1c
+.RI "ak_ca_root \fBca\fP [8]"
+.br
+.ti -1c
+.RI "ak_ca_segment \fBmap_root\fP"
+.br
+.ti -1c
+.RI "ak_spinlock \fBMAP_LOCK\fP"
+.br
+.in -1c
+.SH "Detailed Description"
+.PP 
+Private malloc like allocator 
+.PP
+Definition at line 2535 of file malloc\&.c\&.
+.SH "Field Documentation"
+.PP 
+.SS "ak_ca_root ak_malloc_state::ca[8]"
+coalescing allocators of different size ranges 
+.PP
+Definition at line 2539 of file malloc\&.c\&.
+.SS "ak_sz ak_malloc_state::init"
+whether initialized 
+.PP
+Definition at line 2537 of file malloc\&.c\&.
+.SS "ak_spinlock ak_malloc_state::MAP_LOCK"
+lock for mmap-ed regions if locks are enabled 
+.PP
+Definition at line 2542 of file malloc\&.c\&.
+.SS "ak_ca_segment ak_malloc_state::map_root"
+root of list of mmap-ed segments 
+.PP
+Definition at line 2540 of file malloc\&.c\&.
+.SS "ak_slab_root ak_malloc_state::slabs[16]"
+slabs of different sizes 
+.PP
+Definition at line 2538 of file malloc\&.c\&.
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for akmalloc from the source code\&.

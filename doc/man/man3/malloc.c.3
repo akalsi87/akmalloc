@@ -1,0 +1,719 @@
+.TH "malloc.c" 3 "Sun Jul 17 2016" "akmalloc" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+malloc.c \- 
+.SH SYNOPSIS
+.br
+.PP
+\fC#include 'akmalloc/malloc\&.h'\fP
+.br
+\fC#include <stdlib\&.h>\fP
+.br
+\fC#include <stdio\&.h>\fP
+.br
+\fC#include <sched\&.h>\fP
+.br
+\fC#include <unistd\&.h>\fP
+.br
+\fC#include <sys/mman\&.h>\fP
+.br
+
+.SS "Data Structures"
+
+.in +1c
+.ti -1c
+.RI "struct \fBak_slab_root\fP"
+.br
+.ti -1c
+.RI "struct \fBak_ca_root\fP"
+.br
+.ti -1c
+.RI "struct \fBak_malloc_state\fP"
+.br
+.in -1c
+.SS "Macros"
+
+.in +1c
+.ti -1c
+.RI "#define \fBAK_MALLOCSTATE_USE_LOCKS\fP"
+.br
+.ti -1c
+.RI "#define \fBAK_COALESCE_ALIGN\fP   16"
+.br
+.in -1c
+.SS "Typedefs"
+
+.in +1c
+.ti -1c
+.RI "typedef int(* \fBak_seg_cbk\fP )(const void *, size_t)"
+.br
+.in -1c
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "static void \fBak_slab_init_root\fP (ak_slab_root *s, ak_sz sz, ak_u32 npages, ak_u32 relrate, ak_u32 maxpagefree)"
+.br
+.ti -1c
+.RI "static void \fBak_slab_init_root_default\fP (ak_slab_root *s, ak_sz sz)"
+.br
+.ti -1c
+.RI "static void * \fBak_slab_alloc\fP (ak_slab_root *root)"
+.br
+.ti -1c
+.RI "static void \fBak_slab_free\fP (void *p)"
+.br
+.ti -1c
+.RI "static void \fBak_slab_destroy\fP (ak_slab_root *root)"
+.br
+.ti -1c
+.RI "static void \fBak_ca_init_root\fP (ak_ca_root *root, ak_u32 relrate, ak_u32 maxsegstofree)"
+.br
+.ti -1c
+.RI "static void \fBak_ca_init_root_default\fP (ak_ca_root *root)"
+.br
+.ti -1c
+.RI "static void * \fBak_ca_realloc_in_place\fP (ak_ca_root *root, void *mem, ak_sz newsz)"
+.br
+.ti -1c
+.RI "static void * \fBak_ca_alloc\fP (ak_ca_root *root, ak_sz s)"
+.br
+.ti -1c
+.RI "static void \fBak_ca_free\fP (ak_ca_root *root, void *m)"
+.br
+.ti -1c
+.RI "static void \fBak_ca_destroy\fP (ak_ca_root *root)"
+.br
+.ti -1c
+.RI "static size_t \fBak_malloc_usable_size_in_state\fP (const void *mem)"
+.br
+.ti -1c
+.RI "static void \fBak_malloc_init_state\fP (ak_malloc_state *s)"
+.br
+.ti -1c
+.RI "static void \fBak_malloc_destroy_state\fP (ak_malloc_state *m)"
+.br
+.ti -1c
+.RI "static void * \fBak_malloc_from_state\fP (ak_malloc_state *m, size_t sz)"
+.br
+.ti -1c
+.RI "static void \fBak_free_to_state\fP (ak_malloc_state *m, void *mem)"
+.br
+.ti -1c
+.RI "static void * \fBak_realloc_in_place_from_state\fP (ak_malloc_state *m, void *mem, size_t newsz)"
+.br
+.ti -1c
+.RI "static void * \fBak_realloc_from_state\fP (ak_malloc_state *m, void *mem, size_t newsz)"
+.br
+.ti -1c
+.RI "static void * \fBak_aligned_alloc_from_state\fP (ak_malloc_state *m, size_t aln, size_t sz)"
+.br
+.ti -1c
+.RI "static int \fBak_posix_memalign_from_state\fP (ak_malloc_state *m, void **pmem, size_t aln, size_t sz)"
+.br
+.ti -1c
+.RI "static void \fBak_malloc_for_each_segment_in_state\fP (ak_malloc_state *m, \fBak_seg_cbk\fP cbk)"
+.br
+.ti -1c
+.RI "void * \fBak_malloc\fP (size_t sz)"
+.br
+.ti -1c
+.RI "void * \fBak_calloc\fP (size_t elsz, size_t numel)"
+.br
+.ti -1c
+.RI "void \fBak_free\fP (void *mem)"
+.br
+.ti -1c
+.RI "void * \fBak_aligned_alloc\fP (size_t sz, size_t aln)"
+.br
+.ti -1c
+.RI "int \fBak_posix_memalign\fP (void **pmem, size_t aln, size_t sz)"
+.br
+.ti -1c
+.RI "void * \fBak_memalign\fP (size_t sz, size_t aln)"
+.br
+.ti -1c
+.RI "size_t \fBak_malloc_usable_size\fP (const void *mem)"
+.br
+.ti -1c
+.RI "void * \fBak_realloc\fP (void *mem, size_t newsz)"
+.br
+.ti -1c
+.RI "void \fBak_malloc_for_each_segment\fP (\fBak_seg_cbk\fP cbk)"
+.br
+.in -1c
+.SS "Variables"
+
+.in +1c
+.ti -1c
+.RI "static const ak_sz \fBSLAB_SIZES\fP [16]"
+.br
+.ti -1c
+.RI "static const ak_sz \fBCA_SIZES\fP [8]"
+.br
+.in -1c
+.SH "Detailed Description"
+.PP 
+
+.PP
+\fBDate:\fP
+.RS 4
+Apr 08, 2016 
+.RE
+.PP
+
+.PP
+Definition in file \fBmalloc\&.c\fP\&.
+.SH "Macro Definition Documentation"
+.PP 
+.SS "#define AK_COALESCE_ALIGN   16"
+We choose a minimum alignment of 16\&. One could increase this, but not decrease\&.
+.PP
+16 byte alignment buys us a few things:
+.IP "1." 4
+The 3 low-bits of an address will be 000\&. Therefore we can store metadata in them\&.
+.IP "2." 4
+On x64, we can exactly store two pointers worth of information in any block which can be used to house an implicit free list\&. 
+.PP
+
+.PP
+Definition at line 1761 of file malloc\&.c\&.
+.SS "#define AK_MALLOCSTATE_USE_LOCKS"
+Decide to use or not use locks 
+.PP
+Definition at line 1232 of file malloc\&.c\&.
+.SH "Typedef Documentation"
+.PP 
+.SS "typedef int(* ak_seg_cbk)(const void *, size_t)"
+Gets a pointer to a memory segment and its size\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIp;\fP Pointer to segment memory\&. 
+.br
+\fIsz;\fP Number of bytes in the segment\&.
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP to stop iteration, non-zero to continue\&. 
+.RE
+.PP
+
+.PP
+Definition at line 1261 of file malloc\&.c\&.
+.SH "Function Documentation"
+.PP 
+.SS "void* ak_aligned_alloc (size_taln, size_tsz)"
+Attempt to allocate memory containing at least \fCn\fP bytes at an address which is a multiple of \fCaln\fP\&. \fCaln\fP must be a power of two\&. \fCsz\fP must be a multiple of \fCaln\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIaln;\fP The alignment 
+.br
+\fIsz;\fP The size for the allocation
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP on failure, else pointer to at least \fCn\fP bytes of memory at an aligned address\&. 
+.RE
+.PP
+
+.PP
+Definition at line 3024 of file malloc\&.c\&.
+.SS "static void* ak_aligned_alloc_from_state (ak_malloc_state *m, size_taln, size_tsz)\fC [static]\fP"
+Attempt to allocate memory containing at least \fCn\fP bytes at an address which is a multiple of \fCaln\fP\&. \fCaln\fP must be a power of two\&. \fCsz\fP must be a multiple of \fCaln\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIm;\fP The allocator 
+.br
+\fIaln;\fP The alignment 
+.br
+\fIsz;\fP The size for the allocation
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP on failure, else pointer to at least \fCn\fP bytes of memory at an aligned address\&. 
+.RE
+.PP
+
+.PP
+Definition at line 2884 of file malloc\&.c\&.
+.SS "static void* ak_ca_alloc (ak_ca_root *root, ak_szs)\fC [static]\fP"
+Attempt to allocate memory from the coalescing allocator root\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIroot;\fP Pointer to the allocator root 
+.br
+\fIs;\fP The size for the allocation
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP on failure, else pointer to at least \fCs\fP bytes of memory\&. 
+.RE
+.PP
+
+.PP
+Definition at line 2174 of file malloc\&.c\&.
+.SS "static void ak_ca_destroy (ak_ca_root *root)\fC [static]\fP"
+Destroy the coalescing allocator root and return all memory to the OS\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIroot;\fP Pointer to the allocator root 
+.RE
+.PP
+
+.PP
+Definition at line 2305 of file malloc\&.c\&.
+.SS "static void ak_ca_free (ak_ca_root *root, void *m)\fC [static]\fP"
+Return memory to the coalescing allocator root\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIroot;\fP Pointer to the allocator root 
+.br
+\fIm;\fP The memory to return\&. 
+.RE
+.PP
+
+.PP
+Definition at line 2199 of file malloc\&.c\&.
+.SS "static void ak_ca_init_root (ak_ca_root *root, ak_u32relrate, ak_u32maxsegstofree)\fC [static]\fP"
+Initialize a coalescing allocator\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIroot;\fP Pointer to the allocator root to initialize (non-NULL) 
+.br
+\fIrelrate;\fP Release rate, \fBakmalloc\fP 
+.br
+\fImaxsegstofree;\fP Number of segments to free upon release, \fBakmalloc\fP 
+.RE
+.PP
+
+.PP
+Definition at line 2090 of file malloc\&.c\&.
+.SS "static void ak_ca_init_root_default (ak_ca_root *root)\fC [static]\fP"
+Default initialize a coalescing allocator\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIroot;\fP Pointer to the allocator root to initialize (non-NULL) 
+.RE
+.PP
+
+.PP
+Definition at line 2110 of file malloc\&.c\&.
+.SS "static void* ak_ca_realloc_in_place (ak_ca_root *root, void *mem, ak_sznewsz)\fC [static]\fP"
+Attempt to grow an existing allocation\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIroot;\fP Pointer to the allocator root 
+.br
+\fImem;\fP Existing memory to grow 
+.br
+\fInewsz;\fP The new size for the allocation
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP on failure, and \fCmem\fP on success which can hold at least \fCnewsz\fP bytes\&. 
+.RE
+.PP
+
+.PP
+Definition at line 2128 of file malloc\&.c\&.
+.SS "void* ak_calloc (size_tn, size_ts)"
+Attempt to allocate zeroed memory, containing at least \fCn\fP x \fCs\fP bytes\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIn;\fP Number of objects to zero\&. 
+.br
+\fIs;\fP The size for each object\&.
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP on failure, else pointer to at least \fCs\fP bytes of memory\&. 
+.RE
+.PP
+
+.PP
+Definition at line 3011 of file malloc\&.c\&.
+.SS "void ak_free (void *p)"
+Return memory to the allocator\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIp;\fP Pointer to the memory to return\&. 
+.RE
+.PP
+
+.PP
+Definition at line 3018 of file malloc\&.c\&.
+.SS "static void ak_free_to_state (ak_malloc_state *m, void *mem)\fC [static]\fP"
+Return memory to the allocator\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIm;\fP The allocator 
+.br
+\fImem;\fP Pointer to the memory to return\&. 
+.RE
+.PP
+
+.PP
+Definition at line 2759 of file malloc\&.c\&.
+.SS "void* ak_malloc (size_tn)"
+Attempt to allocate memory containing at least \fCn\fP bytes\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIn;\fP The size for the allocation
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP on failure, else pointer to at least \fCn\fP bytes of memory\&. 
+.RE
+.PP
+
+.PP
+Definition at line 3005 of file malloc\&.c\&.
+.SS "static void ak_malloc_destroy_state (ak_malloc_state *m)\fC [static]\fP"
+Destroy the private malloc like allocator and return all memory to the OS\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIm;\fP Pointer to the allocator 
+.RE
+.PP
+
+.PP
+Definition at line 2718 of file malloc\&.c\&.
+.SS "void ak_malloc_for_each_segment (\fBak_seg_cbk\fPcbk)"
+Iterate over all memory segments allocated\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcbk;\fP Callback that is given the address of a segment and its size\&. 
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+\fBak_seg_cbk\fP\&. 
+.RE
+.PP
+
+.PP
+Definition at line 3059 of file malloc\&.c\&.
+.SS "static void ak_malloc_for_each_segment_in_state (ak_malloc_state *m, \fBak_seg_cbk\fPcbk)\fC [static]\fP"
+Iterate over all memory segments allocated\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIm;\fP The allocator 
+.br
+\fIcbk;\fP Callback that is given the address of a segment and its size\&. 
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+\fBak_seg_cbk\fP\&. 
+.RE
+.PP
+
+.PP
+Definition at line 2942 of file malloc\&.c\&.
+.SS "static void* ak_malloc_from_state (ak_malloc_state *m, size_tsz)\fC [static]\fP"
+Attempt to allocate memory containing at least \fCn\fP bytes\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIm;\fP The allocator 
+.br
+\fIsz;\fP The size for the allocation
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP on failure, else pointer to at least \fCn\fP bytes of memory\&. 
+.RE
+.PP
+
+.PP
+Definition at line 2743 of file malloc\&.c\&.
+.SS "static void ak_malloc_init_state (ak_malloc_state *s)\fC [static]\fP"
+Initialize a private malloc like allocator\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIs;\fP Pointer to the allocator to initialize (non-NULL) 
+.RE
+.PP
+
+.PP
+Definition at line 2696 of file malloc\&.c\&.
+.SS "size_t ak_malloc_usable_size (const void *p)"
+Return the usable size of the memory region pointed to by \fCp\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIp;\fP Pointer to the memory to determize size of\&.
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The number of bytes that can be written to in the region\&. 
+.RE
+.PP
+
+.PP
+Definition at line 3042 of file malloc\&.c\&.
+.SS "static size_t ak_malloc_usable_size_in_state (const void *mem)\fC [static]\fP"
+Return the usable size of the memory region pointed to by \fCp\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fImem;\fP Pointer to the memory to determize size of\&.
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The number of bytes that can be written to in the region\&. 
+.RE
+.PP
+
+.PP
+Definition at line 2854 of file malloc\&.c\&.
+.SS "void* ak_memalign (size_taln, size_tsz)"
+Attempt to allocate memory containing at least \fCn\fP bytes at an address which is a multiple of \fCaln\fP\&. \fCaln\fP must be a power of two\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIaln;\fP The alignment 
+.br
+\fIsz;\fP The size for the allocation
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP on failure, else pointer to at least \fCn\fP bytes of memory at an aligned address\&. 
+.RE
+.PP
+
+.PP
+Definition at line 3036 of file malloc\&.c\&.
+.SS "int ak_posix_memalign (void **pptr, size_taln, size_tsz)"
+Attempt to allocate memory containing at least \fCn\fP bytes at an address which is a multiple of \fCaln\fP and assign the address to \fC*pptr\fP\&. \fCaln\fP must be a power of two and a multiple of \fCsizeof(void*)\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIpptr;\fP The address where the memory address should be writted\&. 
+.br
+\fIaln;\fP The alignment 
+.br
+\fIsz;\fP The size for the allocation
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP on success, 12 if no more memory is available, and 22 if \fCaln\fP was not a power of two and a multiple of \fCsizeof(void*)\fP 
+.RE
+.PP
+
+.PP
+Definition at line 3030 of file malloc\&.c\&.
+.SS "static int ak_posix_memalign_from_state (ak_malloc_state *m, void **pmem, size_taln, size_tsz)\fC [static]\fP"
+Attempt to allocate memory containing at least \fCn\fP bytes at an address which is a multiple of \fCaln\fP and assign the address to \fC*pmem\fP\&. \fCaln\fP must be a power of two and a multiple of \fCsizeof(void*)\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIm;\fP The allocator 
+.br
+\fIpmem;\fP The address where the memory address should be writted\&. 
+.br
+\fIaln;\fP The alignment 
+.br
+\fIsz;\fP The size for the allocation
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP on success, 12 if no more memory is available, and 22 if \fCaln\fP was not a power of two and a multiple of \fCsizeof(void*)\fP 
+.RE
+.PP
+
+.PP
+Definition at line 2914 of file malloc\&.c\&.
+.SS "void* ak_realloc (void *p, size_tnewsz)"
+Attempt to grow memory at the region pointed to by \fCp\fP to a size \fCnewsz\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIp;\fP Memory to grow 
+.br
+\fInewsz;\fP New size to grow to
+.RE
+.PP
+This function will copy the old bytes to a new memory location if the old memory cannot be grown in place, and will free the old memory\&. If no more memory is available it will not destroy the old memory\&.
+.PP
+\fBReturns:\fP
+.RS 4
+\fCNULL\fP if no memory is available, or a pointer to memory with at least \fCnewsz\fP bytes\&. 
+.RE
+.PP
+
+.PP
+Definition at line 3047 of file malloc\&.c\&.
+.SS "static void* ak_realloc_from_state (ak_malloc_state *m, void *mem, size_tnewsz)\fC [static]\fP"
+Attempt to grow memory at the region pointed to by \fCp\fP to a size \fCnewsz\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIm;\fP The allocator 
+.br
+\fImem;\fP Memory to grow 
+.br
+\fInewsz;\fP New size to grow to
+.RE
+.PP
+This function will copy the old bytes to a new memory location if the old memory cannot be grown in place, and will free the old memory\&. If no more memory is available it will not destroy the old memory\&.
+.PP
+\fBReturns:\fP
+.RS 4
+\fCNULL\fP if no memory is available, or a pointer to memory with at least \fCnewsz\fP bytes\&. 
+.RE
+.PP
+
+.PP
+Definition at line 2826 of file malloc\&.c\&.
+.SS "static void* ak_realloc_in_place_from_state (ak_malloc_state *m, void *mem, size_tnewsz)\fC [static]\fP"
+Attempt to grow memory at the region pointed to by \fCp\fP to a size \fCnewsz\fP without relocation\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIm;\fP The allocator 
+.br
+\fImem;\fP Memory to grow 
+.br
+\fInewsz;\fP New size to grow to
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fCNULL\fP if no memory is available, or \fCmem\fP with at least \fCnewsz\fP bytes\&. 
+.RE
+.PP
+
+.PP
+Definition at line 2795 of file malloc\&.c\&.
+.SS "static void* ak_slab_alloc (ak_slab_root *root)\fC [static]\fP"
+Attempt to allocate memory from the slab allocator root\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIroot;\fP Pointer to the allocator root
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fC0\fP on failure, else pointer to at least \fCroot->sz\fP bytes of memory\&. 
+.RE
+.PP
+
+.PP
+Definition at line 1619 of file malloc\&.c\&.
+.SS "static void ak_slab_destroy (ak_slab_root *root)\fC [static]\fP"
+Destroy the slab allocator root and return all memory to the OS\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIroot;\fP Pointer to the allocator root 
+.RE
+.PP
+
+.PP
+Definition at line 1689 of file malloc\&.c\&.
+.SS "static void ak_slab_free (void *p)\fC [static]\fP"
+Return memory to the slab allocator root\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIp;\fP Pointer to the memory to return\&. 
+.RE
+.PP
+
+.PP
+Definition at line 1650 of file malloc\&.c\&.
+.SS "static void ak_slab_init_root (ak_slab_root *s, ak_szsz, ak_u32npages, ak_u32relrate, ak_u32maxpagefree)\fC [static]\fP"
+Initialize a slab allocator\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIs;\fP Pointer to the allocator root to initialize (non-NULL) 
+.br
+\fIsz;\fP Size of the slab elements (maximum allowed is 4000) 
+.br
+\fInpages;\fP Number of pages to allocate from the OS at once\&. 
+.br
+\fIrelrate;\fP Release rate, \fBakmalloc\fP 
+.br
+\fImaxpagefree;\fP Number of segments to free upon release, \fBakmalloc\fP 
+.RE
+.PP
+
+.PP
+Definition at line 1586 of file malloc\&.c\&.
+.SS "static void ak_slab_init_root_default (ak_slab_root *s, ak_szsz)\fC [static]\fP"
+Default initialize a slab allocator\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIs;\fP Pointer to the allocator root to initialize (non-NULL) 
+.br
+\fIsz;\fP Size of the slab elements (maximum allowed is 4000) 
+.RE
+.PP
+
+.PP
+Definition at line 1608 of file malloc\&.c\&.
+.SH "Variable Documentation"
+.PP 
+.SS "const ak_sz CA_SIZES[8]\fC [static]\fP"
+\fBInitial value:\fP
+.PP
+.nf
+= {
+    768, 1408, 2048, 4096, 8192, 16384, 65536,  ( ((ak_sz)1)  << 20)  
+}
+.fi
+Sizes for the coalescing allocators in an \fCak_malloc_state\fP 
+.PP
+Size here denotes maximum size request for each allocator\&. 
+.PP
+Definition at line 2526 of file malloc\&.c\&.
+.SS "const ak_sz SLAB_SIZES[16]\fC [static]\fP"
+\fBInitial value:\fP
+.PP
+.nf
+= {
+    16,   32,   48,   64,   80,   96,  112,  128,
+   144,  160,  176,  192,  208,  224,  240,  256
+}
+.fi
+Sizes for the slabs in an \fCak_malloc_state\fP 
+.PP
+Definition at line 2514 of file malloc\&.c\&.
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for akmalloc from the source code\&.

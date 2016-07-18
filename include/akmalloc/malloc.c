@@ -46,20 +46,20 @@ For more information, please refer to <http://unlicense.org/>
  *
  * The goals for this library are:
  *
- * 1. Easy to read and maintain.
+ * -# Easy to read and maintain.
  *
- * 2. Be more memory conserving.
+ * -# Be more memory conserving.
  *
- * 3. High efficiency and good performance.
+ * -# High efficiency and good performance.
  *
- * 4. Portability.
+ * -# Portability.
  *
  *
  * The constituent parts of malloc are:
  *
- * 1. \ref slaballoc
+ * -# \ref slaballoc
  *
- * 2. \ref caalloc
+ * -# \ref caalloc
  *
  * For the \p malloc() implementation see \ref akmallocDox
  *
@@ -73,13 +73,14 @@ For more information, please refer to <http://unlicense.org/>
  *
  * You may then decide to either build a library or include it directly into your source code.
  *
- * <h3> Requirements </h3>
+ * <h2> Requirements </h2>
  *
- * 1. A recent version of GCC, Clang, or MSVC. Although akmalloc has been qualified on these
- *    compilers, if you face issues raise a ticket <a href="https://github.com/akalsi87/akmalloc/issues">here</a>.
+ * A recent version of GCC, Clang or MSVC. Although akmalloc has been qualified on these
+ * compilers, if you face issues raise a ticket <a href="https://github.com/akalsi87/akmalloc/issues">here</a>.
  *
+ * <h2> Usage </h2>
+ * See \ref customMalloc for details on how to include and work with <tt>akmalloc</tt>.
  */
-
 
 #define AKMALLOC_MAJOR_VER    1
 #define AKMALLOC_MINOR_VER    0
@@ -1290,11 +1291,11 @@ typedef int(*ak_seg_cbk)(const void*, size_t);
  *
  * Slab roots have three lists of slabs
  *
- * 1. Partial: List of partially filled slabs.
+ * -# <em>Partial</em>: List of partially filled slabs.
  *
- * 2. Full: List of copmletely full slabs.
+ * -# <em>Full</em>: List of completely full slabs.
  *
- * 3. Empty: List of completely empty slabs.
+ * -# <em>Empty</em>: List of completely empty slabs.
  *
  * This separation exists so that a slab root can get to an allocation in constant time by
  * only checking the partial bins. As they fill up, the slab is moved to the full bin. If
@@ -1306,8 +1307,6 @@ typedef int(*ak_seg_cbk)(const void*, size_t);
  * every so often, a slab allocator will return all its free pages to the OS.
  *
  * This allocator can be made thread safe upon request.
- *
- * \see akmalloc/slab.h
  */
 
 typedef struct ak_slab_tag ak_slab;
@@ -1720,13 +1719,10 @@ static void ak_slab_destroy(ak_slab_root* root)
  * In actuality, each tag holds the information about the previous chunk also. This allocator
  * has a minimum alignment of 16 bytes which yields four free bits in every address.
  *
- * The 0th bit is used to store whether a chunk has a chunk before it in the segment.
- *
- * The 1st bit is used to store whether a chunk has a chunk after it in the segment.
- *
- * The 2nd bit is used to store whether a chunk is allocated or free.
- *
- * The rest of the bits store the size of the allocated chunk.
+ * -# <em>0th bit</em>: Used to store whether a chunk has a chunk before it in the segment.
+ * -# <em>1st bit</em>: Used to store whether a chunk has a chunk after it in the segment.
+ * -# <em>2nd bit</em>: Used to store whether a chunk is allocated or free.
+ * -# <em>Rest</em> of the bits store the size of the allocated chunk.
  *
  * There is a bit still unused which is always 0. This is exploited by the overall malloc
  * implementation to distinguish memory allocated by coalescing allocators from other schemes.
@@ -1743,26 +1739,24 @@ static void ak_slab_destroy(ak_slab_root* root)
  *
  * Coalescing allocator roots have two lists of segments
  *
- * 1. NonEmpty: List of non-empty segments.
+ * -# <em>NonEmpty</em>: List of non-empty segments.
  *
- * 2. Empty: List of completely empty segments.
+ * -# <em>Empty</em>: List of completely empty segments.
  *
  * When there are more than a user-settable number of empty segments, the slab allocator will free
  * another user-settable number of them. The default is for both number to be equal, which means
  * every so often, a slab allocator will return all its free pages to the OS.
  *
  * This allocator can be made thread safe upon request.
- *
- * \see akmalloc/coalescingalloc.h
  */
 
 /**
  * We choose a minimum alignment of 16. One could increase this, but not decrease.
  *
  * 16 byte alignment buys us a few things:
- * - The 3 low-bits of an address will be 000. Therefore we can store metadata in them.
- * - On x64, we can exactly store two pointers worth of information in any block which
- *   can be used to house an implicit free list.
+ * -# The 3 low-bits of an address will be 000. Therefore we can store metadata in them.
+ * -# On x64, we can exactly store two pointers worth of information in any block which
+ *    can be used to house an implicit free list.
  */
 #define AK_COALESCE_ALIGN 16
 
@@ -2319,7 +2313,7 @@ static void ak_ca_destroy(ak_ca_root* root)
 /********************** mallocstate begin **********************/
 /*!
  *
- * \page akmallocDox <tt>akmalloc</tt>
+ * \page akmallocDox akmalloc
  *
  * <tt>akmalloc</tt> is a composite allocator, combining slabs and coalescing allocators.
  *
@@ -2343,14 +2337,35 @@ static void ak_ca_destroy(ak_ca_root* root)
  * ---0      Coalescing allocator with fourth bit unset always
  * 0101      Slab allocator
  * 1001      mmap()
- * \endcode 
+ * \endcode
  *
- * \see akmalloc/mallocstate.h
  * \see akmalloc/malloc.h
  * \see akmalloc/malloc.c
  *
- * \section customMalloc Customizing akmalloc, ak_malloc_state, ak_slab_root and ak_ca_root
+ * \section customMalloc Customization
  *
+ * <tt>akmalloc</tt> can be built as a shared library, static library, or included directly
+ * as part of your source code.
+ *
+ * <h3> Include only </h3>
+ * To include this akmalloc directly, simply define <tt>AKMALLOC_INCLUDE_ONLY</tt> before including
+ * the <tt>malloc.h</tt> file.
+ *
+ * <h3> Static library </h3>
+ * To build a static library, define <tt>AKMALLOC_LINK_STATIC</tt> and you may have to change
+ * <tt>AKMALLOC_EXPORT</tt>.
+ *
+ * <h3> Shared library </h3>
+ * To build a shared library, define <tt>AKMALLOC_BUILD</tt> when building the library, and
+ * set <tt>AKMALLOC_EXPORT</tt> to be the right visibility symbol for your compiler/system
+ * i.e., <tt>__declspec(dllexport)</tt> on Windows/MSVC and
+ * <tt>__attribute__((\__visibility\__("default")))</tt> on Linux/Mac.
+ *
+ * When including the header for the shared library, ensure <tt>AKMALLOC_EXPORT</tt> is defined
+ * correctly for the import (<tt>__declspec(dllimport)</tt> on Windows/MSVC and
+ * <tt></tt> on Linux/Mac).
+ *
+ * <h3> Customizing <tt>akmalloc</tt> </h3>
  * The following defines are available for use while building (or including if your build is only
  * directly including the header files). They are marked as controlling one or more options.
  *
@@ -2362,8 +2377,10 @@ static void ak_ca_destroy(ak_ca_root* root)
  * #define AKMALLOC_USE_PREFIX // [0 | 1]
  *
  * // controls the symbol visibility of APIs, default chosen based on build type
- * // works for ak_malloc
- * #define AKMALLOC_EXPORT // chosen based on build type
+ * // works for all exported APIs
+ * // if building a shared library, you probably want something like '__declspec(dllexport)'
+ * // on Windows/MSVC and '__attribute__((__visibility__("default")))' on Linux/Mac.
+ * #define AKMALLOC_EXPORT // choose based on build type, default: extern
  *
  * // controls the assert macro to use
  * // works with all APIs when built in debug mode (NDEBUG is not defined)

@@ -1,0 +1,121 @@
+.TH "akmalloc_dox" 3 "Sun Jul 17 2016" "akmalloc" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+akmalloc_dox \- akmalloc 
+\fCakmalloc\fP is a composite allocator, combining slabs and coalescing allocators\&.
+.PP
+It uses a static \fCak_malloc_state\fP\&.
+.PP
+All the exported APIs are based on \fCak_malloc_state\fP\&.
+.PP
+It uses an array of slabs of sizes from 8B to 256B, an array of coalescing allocators ranging in size from 768B to 1MB and directly uses OS calls beyond that size\&.
+.PP
+It handles multi threading by having a lock per slab or coalescing allocator, or OS calls\&. Multiple threads that allocate or free a size in a different size category do not contend with each other\&.
+.PP
+By default shared and static libraries have a thread safe malloc and free\&.
+.PP
+Every allocation has a 8B header which contains a distinct bit mask allowing the allocator to classify it\&.
+.PP
+.PP
+.nf
+---0      Coalescing allocator with fourth bit unset always
+0101      Slab allocator
+1001      mmap()
+.fi
+.PP
+.PP
+\fBSee also:\fP
+.RS 4
+\fBakmalloc/malloc\&.h\fP 
+.PP
+\fBakmalloc/malloc\&.c\fP
+.RE
+.PP
+.SH "Customization"
+.PP
+\fCakmalloc\fP can be built as a shared library, static library, or included directly as part of your source code\&.
+.PP
+.SS "Include only "
+.PP
+To include this akmalloc directly, simply define \fCAKMALLOC_INCLUDE_ONLY\fP before including the \fC\fBmalloc\&.h\fP\fP file\&.
+.PP
+.SS "Static library "
+.PP
+To build a static library, define \fCAKMALLOC_LINK_STATIC\fP and you may have to change \fCAKMALLOC_EXPORT\fP\&.
+.PP
+.SS "Shared library "
+.PP
+To build a shared library, define \fCAKMALLOC_BUILD\fP when building the library, and set \fCAKMALLOC_EXPORT\fP to be the right visibility symbol for your compiler/system i\&.e\&., \fC__declspec(dllexport)\fP on Windows/MSVC and \fC__attribute__((__visibility__('default')))\fP on Linux/Mac\&.
+.PP
+When including the header for the shared library, ensure \fCAKMALLOC_EXPORT\fP is defined correctly for the import (\fC__declspec(dllimport)\fP on Windows/MSVC and \fC\fP on Linux/Mac)\&.
+.PP
+.SS "Customizing \fCakmalloc\fP "
+.PP
+The following defines are available for use while building (or including if your build is only directly including the header files)\&. They are marked as controlling one or more options\&.
+.PP
+It is better to define these before including any \fCakmalloc\fP header files\&.
+.PP
+.PP
+.nf
+// controls whether the symbols available are malloc/free etc\&. or ak_malloc/ak_free\&.\&.\&.
+// works for ak_malloc
+#define AKMALLOC_USE_PREFIX // [0 | 1]
+
+// controls the symbol visibility of APIs, default chosen based on build type
+// works for all exported APIs
+// if building a shared library, you probably want something like '__declspec(dllexport)'
+// on Windows/MSVC and '__attribute__((__visibility__("default")))' on Linux/Mac\&.
+#define AKMALLOC_EXPORT // choose based on build type, default: extern
+
+// controls the assert macro to use
+// works with all APIs when built in debug mode (NDEBUG is not defined)
+#define AKMALLOC_ASSERT_IMPL // default: custom assert macro
+
+// whether to use locks for malloc()/free()
+// works for ak_malloc
+#define AKMALLOC_USE_LOCKS [0 | 1] // defaults to 1 for libraries
+
+// whether to use locks for ak_malloc_from_state() variety of APIs
+// including malloc\&.h directly will set this based on AKMALLOC_USE_LOCKS
+// works for ak_malloc_state
+#define AK_MALLOCSTATE_USE_LOCKS // defined or undefined, default is undefined
+
+// whether to always align allocations at 16 byte boundaries, slabs can do 8
+// works for ak_malloc_state and ak_malloc
+#define AK_MIN_SLAB_ALIGN_16 // defined or undefined, default is undefined
+
+// number of empty pages after which to free some
+// works for ak_slab, ak_malloc_state and ak_malloc
+#define AK_SLAB_RELEASE_RATE // default: 127
+
+// number of empty pages to free after a release is reached
+// works for ak_slab, ak_malloc_state and ak_malloc
+#define AK_SLAB_MAX_PAGES_TO_FREE // default: AK_SLAB_RELEASE_RATE
+
+// multiples of this size are used to obtain memory from the OS for coalescing allocators
+// works for ak_ca_root, ak_malloc_state and ak_malloc
+#define AK_COALESCE_SEGMENT_GRANULARITY // default is 256KB for ak_malloc and ak_malloc_state
+                                        // deafult is 64KB for ak_ca_root
+
+// number of empty segments after which to free them
+// works for ak_ca_root, ak_malloc_state and ak_malloc
+#define AKMALLOC_COALESCING_ALLOC_RELEASE_RATE // default: 24
+
+// number of segments to free after a release is required
+// works for ak_ca_root, ak_malloc_state and ak_malloc
+#define AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE // default: AKMALLOC_COALESCING_ALLOC_RELEASE_RATE
+
+// at what size to resort to using mmap() like system calls
+// works for ak_malloc_state and ak_malloc
+#define MMAP_SIZE // default is system determined, e\&.g\&. 65536
+
+// customize memory map calls
+// works for all APIs
+// signature for map:   void* (*map)(size_t s);              // return 0 on failure
+// signature for unmap: void  (*unmap)(void* mem, size_t s);
+#define AKMALLOC_MMAP   // default: system dependent
+#define AKMALLOC_MUNMAP // default: system dependent
+.fi
+.PP
+ 
