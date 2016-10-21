@@ -435,6 +435,7 @@ ak_inline static void* ak_ca_realloc_in_place(ak_ca_root* root, void* mem, ak_sz
             // back if the freed size is larger and we split the new node
             // but we assume that reallocs are rare and that one realloc may get more
             // so we try to keep it simple here, and simply merge the two
+            ak_free_list_node nextcopy = *ak_ptr_cast(ak_free_list_node, (next + 1));
 
             ak_free_list_node_unlink((ak_free_list_node*)(next + 1));
             // don't need to change attributes on next as it is going away

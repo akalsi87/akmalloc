@@ -103,7 +103,11 @@ set(PROJ_INCLUDE_DIR ${PROJ_DIR}/include)
 set(PROJ_INSTALL_BIN_DIR bin)
 set(PROJ_INSTALL_LIB_DIR lib)
 set(PROJ_INSTALL_INC_DIR include)
-set(PROJ_INSTALL_SHARE_DIR share/${PROJ_NAME})
+if(WIN32)
+  set(PROJ_INSTALL_SHARE_DIR .)
+else()
+  set(PROJ_INSTALL_SHARE_DIR share/${PROJ_NAME})
+endif()
 
 if (DEFINED ENV{INSTALL_BASE_DIR})
   set(PROJ_INSTALL_DIR $ENV{INSTALL_BASE_DIR})
@@ -135,9 +139,6 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 string(COMPARE EQUAL ${CMAKE_C_COMPILER_ID} "Clang" is_clang)
 string(COMPARE EQUAL ${CMAKE_C_COMPILER_ID} "MSVC" is_msvc)
-
-initvar(PROJ_USE_LTO)
-
 if(is_msvc)
   set(USING_MSVC TRUE CACHE STRING "Using MSVC")
   if(PROJ_USE_LTO)
@@ -179,8 +180,7 @@ endif()
 
 # -- Code coverage defines
 initvar(USE_CODE_COV)
-string(COMPARE EQUAL "${USE_CODE_COV}" "" is_code_cov_unspec)
-if (is_code_cov_unspec)
+if (NOT USE_CODE_COV)
   string(COMPARE EQUAL "$ENV{USE_CODE_COV}" "" is_code_cov_unspec)
   if (is_code_cov_unspec)
     # is config Debug?
@@ -560,19 +560,33 @@ endfunction(add_hdrs_tgt_ide)
 function(add_test_exe testname filename)
   ## deal with normal test
   add_exe(${ARGV})
-  
+  add_inc_dir(${testname} ${PROJ_DIR}/unittest)
+
   # On Windows, the custom build detects the "ERROR" word in the
   # output and fails a passing test. We simply detect on the executable's
   # return code to detect failure.
+
+  # if(USING_MSVC AND ((${testname} STREQUAL "test_unittest") OR (${testname} STREQUAL "test_cppunittest")))
+  #   add_custom_command(TARGET ${testname} POST_BUILD COMMAND ${testname} 2>nul)
+  # else()
+  #   add_custom_command(TARGET ${testname} POST_BUILD COMMAND ${testname})
+  # endif()
+
   if(USING_MSVC AND ((${testname} STREQUAL "test_unittest") OR (${testname} STREQUAL "test_cppunittest")))
-    add_custom_command(TARGET ${testname} POST_BUILD COMMAND ${testname} 2>nul)
+    add_custom_command(OUTPUT ${testname}.dorun
+                       COMMAND ${testname} 2>nul
+                       COMMAND ${CMAKE_COMMAND} -E touch ${testname}.dorun
+                       DEPENDS ${testname})
   else()
-    add_custom_command(TARGET ${testname} POST_BUILD COMMAND ${testname})
+    add_custom_command(OUTPUT ${testname}.dorun
+                       COMMAND ${testname}
+                       COMMAND ${CMAKE_COMMAND} -E touch ${testname}.dorun
+                       DEPENDS ${testname})
   endif()
 
-  add_inc_dir(${testname} ${PROJ_DIR}/unittest)
-  add_test(${testname} ${testname})
-  add_dependencies(check ${testname})
+  add_custom_target("${testname}.exec" DEPENDS "${testname}.dorun")
+  add_test("${testname}.test" ${testname})
+  add_dependencies(check "${testname}.exec")
 
   # deal with test on install
   # copy file to temp folder
@@ -701,7 +715,7 @@ if(USE_CODE_COV)
                      COMMAND echo "#!/bin/sh" > ${CMAKE_BINARY_DIR}/check
                      COMMAND echo "${cd_cmd} ${CMAKE_BINARY_DIR}" >> ${CMAKE_BINARY_DIR}/check
                      COMMAND echo "${CMAKE_COMMAND} .." >> ${CMAKE_BINARY_DIR}/check
-                     COMMAND echo "${CMAKE_COMMAND} --build ." >> ${CMAKE_BINARY_DIR}/check
+                     COMMAND echo "${CMAKE_COMMAND} --build . --target check" >> ${CMAKE_BINARY_DIR}/check
                      COMMAND chmod u+x ${CMAKE_BINARY_DIR}/check)
   add_custom_target(check.cov.gen.done DEPENDS check.cov.gen ${CMAKE_BINARY_DIR}/check)
   SETUP_TARGET_FOR_COVERAGE(check.cov ${CMAKE_BINARY_DIR}/check ${CMAKE_BINARY_DIR}/coverage)

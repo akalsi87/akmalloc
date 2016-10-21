@@ -274,7 +274,12 @@ CPP_TEST( allocRandomFreeMap )
 #else
         p[i] = ak_malloc(s);
 #endif
-        memset(p[i], 42, s);
+        // memset(p[i], 42, s);
+        {
+            char* pc = (char*)p[i];
+            pc[0] = 42;
+            pc[s-1] = 42;
+        }
     }
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
@@ -292,7 +297,12 @@ CPP_TEST( allocRandomFreeMap )
 #else
         p[order[i]] = ak_malloc(s);
 #endif
-        memset(p[order[i]], 42, s);
+        // memset(p[i], 42, s);
+        {
+            char* pc = (char*)p[order[i]];
+            pc[0] = 42;
+            pc[s-1] = 42;
+        }
     }
 
     for (ak_sz i = 0; i < nptrs; ++i) {
@@ -340,7 +350,12 @@ void AllocDeallocTask()
 #else
         p[i] = ak_malloc(sizes[i]);
 #endif
-        memset(p[i], 42, sizes[i]);
+        // memset(p[i], 42, sizes[i]);
+        {
+            char* pc = (char*)p[i];
+            pc[0] = 42;
+            pc[sizes[i]-1] = 42;
+        }
     }
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
@@ -357,7 +372,12 @@ void AllocDeallocTask()
 #else
         p[i] = ak_malloc(sizes[(nptrs/2) - i]);
 #endif
-        memset(p[i], 42, sizes[(nptrs/2) - i]);
+        // memset(p[i], 42, sizes[(nptrs/2) - i]);
+        {
+            char* pc = (char*)p[i];
+            pc[0] = 42;
+            pc[sizes[(nptrs/2) - i]-1] = 42;
+        }
     }
 
     for (ak_sz i = 0; i < nptrs; ++i) {
