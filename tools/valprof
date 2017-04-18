@@ -5,11 +5,11 @@
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
     tempLog=`mktemp`
     tool="kcachegrind"
-    extraArgs="--fn-skip=_dl_runtime_resolve --fn-skip=_dl_addr --fn-skip=_dl_fixup --fn-skip=_dl_lookup_symbol*"
+    extraArgs="--fn-skip=_dl_runtime_resolve* --fn-skip=_dl_addr --fn-skip=_dl_fixup --fn-skip=_dl_lookup_symbol*"
 elif [[ "$OSTYPE" == "linux" ]]; then
     tempLog=`mktemp`
     tool="kcachegrind"
-    extraArgs="--fn-skip=_dl_runtime_resolve --fn-skip=_dl_addr --fn-skip=_dl_fixup --fn-skip=_dl_lookup_symbol*"
+    extraArgs="--fn-skip=_dl_runtime_resolve* --fn-skip=_dl_addr --fn-skip=_dl_fixup --fn-skip=_dl_lookup_symbol*"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     tempLog=`mktemp -t callgrind`
     tool="qcachegrind"

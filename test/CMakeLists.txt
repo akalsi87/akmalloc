@@ -7,7 +7,11 @@ macro(test_create testname)
   # add -Wno-unused-function as not all tests exercise
   # all functions
   if (NOT is_msvc)
-    add_comp_flag(${testname} "-Wno-unused-function")
+    add_comp_flag(${testname} -Wno-unused-function)
+    add_comp_flag(${testname} -Wno-unused-variable)
+    add_comp_flag(${testname} -std=c++11)
+    add_comp_flag(${testname} -pthread)
+    add_link_flag(${testname} -pthread)
   endif()
 endmacro(test_create)
 

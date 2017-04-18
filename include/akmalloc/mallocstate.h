@@ -157,7 +157,7 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
    144,  160,  176,  192,  208,  224,  240,  256
 };
 
-#define NCAROOTS 8
+#define NCAROOTS 21
 
 /*!
  * Sizes for the coalescing allocators in an \c ak_malloc_state
@@ -165,7 +165,12 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
  * Size here denotes maximum size request for each allocator.
  */
 static const ak_sz CA_SIZES[NCAROOTS] = {
-    768, 1408, 2048, 4096, 8192, 16384, 65536, MMAP_SIZE
+    768,  1112,  1408,  1732,
+   2048,  3072,  4096,  6000,
+   7000,  8192, 12000, 14000,
+  16384, 20000, 24000, 28000,
+  32768, 40000, 50000, 65536,
+  MMAP_SIZE
 };
 
 typedef struct ak_malloc_state_tag ak_malloc_state;
