@@ -11,7 +11,7 @@ elif [[ "$OSTYPE" == "linux" ]]; then
     tool="kcachegrind"
     extraArgs="--fn-skip=_dl_runtime_resolve --fn-skip=_dl_addr --fn-skip=_dl_fixup --fn-skip=_dl_lookup_symbol*"
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-    tempLog=`mktemp -t callgrind`
+    tempLog=`mktemp -t callgrind.XXXX`
     tool="qcachegrind"
     extraArgs="--fn-skip=*dyld* --fn-skip=*ImageLoader* --fn-skip=*llvm*gcov*"
 else

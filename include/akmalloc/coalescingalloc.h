@@ -401,7 +401,7 @@ ak_inline static void ak_ca_init_root_default(ak_ca_root* root)
 #if AKMALLOC_BITNESS == 32
     static const ak_u32 rate =  255;
 #else
-    static const ak_u32 rate = 2047;
+    static const ak_u32 rate = 4095;
 #endif
     ak_ca_init_root(root, rate, rate);
 }
@@ -487,9 +487,9 @@ static void* ak_ca_alloc(ak_ca_root* root, ak_sz s)
 {
     // align and round size
     ak_sz sz = ak_ca_aligned_size(s);
-    AK_CA_LOCK_ACQUIRE(root);
-    // search free list
     ak_sz splitsz = root->MIN_SIZE_TO_SPLIT;
+    // search free list
+    AK_CA_LOCK_ACQUIRE(root);
     void* mem = ak_ca_search_free_list(ak_as_ptr(root->free_root), sz, splitsz);
     // add new segment
     if (ak_unlikely(!mem)) {
