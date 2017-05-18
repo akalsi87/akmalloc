@@ -167,7 +167,7 @@ ak_inline static void ak_slab_init_chain_head(ak_slab* s, ak_slab_root* rootp)
 
 ak_inline static ak_sz ak_num_pages_for_sz(ak_sz sz)
 {
-    return (sz)/4;
+    return 1;//(sz)/4;
 }
 
 #define ak_slab_init(m, s, av, r)                                             \

@@ -34,6 +34,7 @@ For more information, please refer to <http://unlicense.org/>
 #define AKMALLOC_MEMMAP_H
 
 #include "akmalloc/config.h"
+#include "akmalloc/assert.h"
 #include "akmalloc/constants.h"
 #include "akmalloc/inline.h"
 #include "akmalloc/types.h"
@@ -57,12 +58,16 @@ ak_inline static ak_sz ak_page_size()
 
 ak_inline static void* ak_mmap(ak_sz s)
 {
-    return VirtualAlloc(0, s, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    void* mem = VirtualAlloc(0, s, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    //fprintf(stderr, "a: %p\n", mem);
+    return mem;
 }
 
 ak_inline static void ak_munmap(void* p, ak_sz s)
 {
-    (void)VirtualFree(p, s, MEM_RELEASE);
+    //fprintf(stderr, "d: %p\n", p);
+    BOOL ret = VirtualFree(p, 0, MEM_RELEASE);
+    AKMALLOC_ASSERT(ret);
 }
 
 #else
@@ -77,7 +82,8 @@ ak_inline static void* ak_mmap(ak_sz s)
 
 ak_inline static void ak_munmap(void* p, ak_sz s)
 {
-    (void)munmap(p, s);
+    int rv = munmap(p, s);
+    AKMALLOC_ASSERT(rv == 0);
 }
 
 #include <unistd.h>
