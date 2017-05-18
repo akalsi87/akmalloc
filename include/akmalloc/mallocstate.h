@@ -56,7 +56,7 @@ For more information, please refer to <http://unlicense.org/>
 #endif
 
 #if !defined(AK_COALESCE_SEGMENT_GRANULARITY)
-#  define AK_COALESCE_SEGMENT_GRANULARITY (((size_t)1) << 18) /* 256KB */
+#  define AK_COALESCE_SEGMENT_GRANULARITY (((size_t)1) << 20) /* 1MB */
 #endif
 
 #include "akmalloc/slab.h"
@@ -157,7 +157,7 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
    144,  160,  176,  192,  208,  224,  240,  256
 };
 
-#define NCAROOTS 12
+#define NCAROOTS 20
 
 /*!
  * Sizes for the coalescing allocators in an \c ak_malloc_state
@@ -165,7 +165,11 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
  * Size here denotes maximum size request for each allocator.
  */
 static const ak_sz CA_SIZES[NCAROOTS] = {
-    768, 1408, 2048, 4096, 8192, 12000, 16384, 24000, 32000, 48000, 65536, MMAP_SIZE
+    768, 1408, 2048, 4096,
+    6000, 8192, 10000, 12000,
+    16384, 24000, 32000, 40000,
+    48000, 56000, 65536, 72000,
+    80000, 88000, 96000, MMAP_SIZE
 };
 
 typedef struct ak_malloc_state_tag ak_malloc_state;
