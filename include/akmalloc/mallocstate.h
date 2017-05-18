@@ -56,7 +56,7 @@ For more information, please refer to <http://unlicense.org/>
 #endif
 
 #if !defined(AK_COALESCE_SEGMENT_GRANULARITY)
-#  define AK_COALESCE_SEGMENT_GRANULARITY (((size_t)1) << 18) /* 256KB */
+#  define AK_COALESCE_SEGMENT_GRANULARITY (((size_t)1) << 17) // 128KB
 #endif
 
 #include "akmalloc/slab.h"
@@ -188,7 +188,7 @@ struct ak_malloc_state_tag
 };
 
 #if !defined(AKMALLOC_COALESCING_ALLOC_RELEASE_RATE)
-#  define AKMALLOC_COALESCING_ALLOC_RELEASE_RATE 32
+#  define AKMALLOC_COALESCING_ALLOC_RELEASE_RATE 16
 #endif
 
 #if !defined(AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE)
