@@ -67,6 +67,10 @@ struct ak_slab_tag
     ak_slab_free_node* next_free;
     size_t             ref_count;
     void*              _unused;
+#if AKMALLOC_BITNESS == 32
+    size_t             _unused0;
+    size_t             _unused1;
+#endif
 };
 
 /*!
