@@ -84,17 +84,24 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
 #elif AKMALLOC_MACOS || AKMALLOC_IOS
 #  define SPINS_PER_YIELD 15
 #else
-#  define SPINS_PER_YIELD 31
+#  define SPINS_PER_YIELD 7
 #endif
+
+    ak_u32 max_spins_per_yield = 1023;
+    ak_u32 spins_per_yield = SPINS_PER_YIELD;
 
     if (ak_atomic_xchg(&(p->islocked), 1)) {
         while (ak_atomic_xchg(&(p->islocked), 1)) {
-            if ((++spins & SPINS_PER_YIELD) == 0) {
+            if ((++spins & spins_per_yield) == 0) {
 #if AKMALLOC_MACOS || AKMALLOC_IOS
-                ak_os_sleep(40);
+                ak_os_sleep(32);
 #else
                 ak_spinlock_yield();
 #endif
+                spins_per_yield = ((spins_per_yield + 1) << 1) - 1;
+                if (spins_per_yield > max_spins_per_yield) {
+                    spins_per_yield = SPINS_PER_YIELD;
+                }
             }
         }
     }
