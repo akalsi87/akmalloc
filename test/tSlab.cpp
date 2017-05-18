@@ -19,7 +19,11 @@
 #  define TEST_DESTRUCTION 0
 #endif
 
+#if AKMALLOC_BITNESS == 64
 static const ak_sz nptrs = 100000;
+#else
+static const ak_sz nptrs = 50000;
+#endif
 
 CPP_TEST( slab8 )
 {
