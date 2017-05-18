@@ -84,6 +84,7 @@ ak_inline static void ak_munmap(void* p, ak_sz s)
 {
     int rv = munmap(p, s);
     AKMALLOC_ASSERT(rv == 0);
+    (void)rv;
 }
 
 #include <unistd.h>
