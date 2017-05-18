@@ -98,8 +98,8 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
             if (spins_per_yield > max_spins_per_yield) {
                 spins_per_yield = SPINS_PER_YIELD;
 #if AKMALLOC_MACOS || AKMALLOC_IOS
-                // ak_os_sleep(5);
-                ak_spinlock_yield();
+                ak_os_sleep(40);
+                // ak_spinlock_yield();
 #elif AKMALLOC_LINUX
                 // ak_os_sleep(5);
                 ak_spinlock_yield();

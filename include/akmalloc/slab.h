@@ -323,11 +323,10 @@ ak_inline static void ak_slab_init_root_default(ak_slab_root* s, ak_sz sz)
 ak_inline static void* ak_slab_alloc(ak_slab_root* root)
 {
     ak_slab* slab = &(root->partial_root);
-
-    AK_SLAB_LOCK_ACQUIRE(root);
     const ak_sz sz = root->sz;
 
     void* mem = AK_NULLPTR;
+    AK_SLAB_LOCK_ACQUIRE(root);
     if (ak_likely(slab->fd != slab)) {// try allocation if not pointing to self
         slab = slab->fd;
         // AKMALLOC_ASSERT(slab->ref_count < root->navail);
