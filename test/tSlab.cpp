@@ -36,7 +36,6 @@ CPP_TEST( slab8 )
         TEST_TRUE(root.full_root.fd == &(root.full_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
         TEST_TRUE(root.sz == 8);
-        TEST_TRUE(root.npages == 1);
     }
 
     {// single alloc and free
@@ -90,7 +89,6 @@ CPP_TEST( slab16 )
         TEST_TRUE(root.full_root.fd == &(root.full_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
         TEST_TRUE(root.sz == 16);
-        TEST_TRUE(root.npages == 1);
     }
 
     {// single alloc and free
@@ -144,7 +142,6 @@ CPP_TEST( slab28 )
         TEST_TRUE(root.full_root.fd == &(root.full_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
         TEST_TRUE(root.sz == 28);
-        TEST_TRUE(root.npages == 1);
     }
 
     {// single alloc and free
@@ -198,7 +195,6 @@ CPP_TEST( slab32 )
         TEST_TRUE(root.full_root.fd == &(root.full_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
         TEST_TRUE(root.sz == 32);
-        TEST_TRUE(root.npages == 1);
     }
 
     {// single alloc and free
@@ -252,7 +248,6 @@ CPP_TEST( slab128 )
         TEST_TRUE(root.full_root.fd == &(root.full_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
         TEST_TRUE(root.sz == 128);
-        TEST_TRUE(root.npages == 1);
     }
 
     {// single alloc and free
@@ -306,7 +301,6 @@ CPP_TEST( slab256 )
         TEST_TRUE(root.full_root.fd == &(root.full_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
         TEST_TRUE(root.sz == 256);
-        TEST_TRUE(root.npages == 1);
     }
 
     {// single alloc and free
@@ -360,7 +354,6 @@ CPP_TEST( slab512 )
         TEST_TRUE(root.full_root.fd == &(root.full_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
         TEST_TRUE(root.sz == 512);
-        TEST_TRUE(root.npages == 1);
     }
 
     {// single alloc and free
@@ -414,7 +407,6 @@ CPP_TEST( slab1024 )
         TEST_TRUE(root.full_root.fd == &(root.full_root));
         TEST_TRUE(root.full_root.bk == &(root.full_root));
         TEST_TRUE(root.sz == 1024);
-        TEST_TRUE(root.npages == 1);
     }
 
     {// single alloc and free
@@ -462,7 +454,7 @@ CPP_TEST( slabDynamics )
     static const ak_sz slabsz = 128;
 
     ak_slab_root root;
-    ak_slab_init_root(&root, slabsz, 1, 2, 1);
+    ak_slab_init_root(&root, slabsz, 2, 1);
 
     static const ak_sz nmain = ((AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))/slabsz);
 
@@ -531,7 +523,7 @@ CPP_TEST( slabDynamicsMultipleAllocReuse )
     static const ak_sz slabsz = 128;
 
     ak_slab_root root;
-    ak_slab_init_root(&root, slabsz, 1, 3, 4);
+    ak_slab_init_root(&root, slabsz, 3, 4);
 
     static const ak_sz nmain = 2 * ((AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))/slabsz);
 

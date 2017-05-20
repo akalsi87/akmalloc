@@ -79,11 +79,9 @@ struct ak_slab_tag
 struct ak_slab_root_tag
 {
     ak_u32 sz;                      /**< the size of elements in this slab */
-    ak_u32 npages;                  /**< number of pages to obtain from the OS */
     ak_u32 navail;                  /**< max number of available bits for the slab size \p sz */
     ak_u32 nempty;                  /**< number of empty pages */
     ak_u32 release;                 /**< number of accumulated free empty pages since last release */
-    ak_u32 _unused;                 /**< for alignment */
 
     ak_slab partial_root;           /**< root of the partially filled slab list*/
     ak_slab full_root;              /**< root of the full slab list */
@@ -165,11 +163,6 @@ ak_inline static void ak_slab_init_chain_head(ak_slab* s, ak_slab_root* rootp)
     s->ref_count = 0;
 }
 
-ak_inline static ak_sz ak_num_pages_for_sz(ak_sz sz)
-{
-    return 1;//(sz)/4;
-}
-
 #define ak_slab_init(m, s, av, r)                                             \
   do {                                                                        \
     void* slabmem = (m);                                                      \
@@ -203,28 +196,9 @@ ak_inline static ak_slab* ak_slab_new_init(char* mem, ak_sz sz, ak_sz navail, ak
 
 static ak_slab* ak_slab_new_alloc(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
-    const int NPAGES = root->npages;
-
-    // try to acquire a page and fit as many slabs as possible in
-    char* const mem = (char*)ak_os_alloc(NPAGES * AKMALLOC_DEFAULT_PAGE_SIZE);
-    {// return if no mem
-        if (ak_unlikely(!mem)) { return AK_NULLPTR; }
-    }
-
-    ak_sz navail = root->navail;
-
-    char* cmem = mem;
-    for (int i = 0; i < NPAGES - 1; ++i) {
-        ak_slab* nextpage = ak_ptr_cast(ak_slab, (cmem + AKMALLOC_DEFAULT_PAGE_SIZE));
-        ak_slab* curr = ak_slab_new_init(cmem, sz, navail, nextpage, bk, root);
-        AKMALLOC_ASSERT(curr->ref_count == navail);
-        (void)curr;
-        bk = nextpage;
-        cmem += AKMALLOC_DEFAULT_PAGE_SIZE;
-    }
-
-    ak_slab_new_init(cmem, sz, navail, fd, bk, root);
-
+    char* const mem = (char*)ak_os_alloc(AKMALLOC_DEFAULT_PAGE_SIZE);
+    if (ak_unlikely(!mem)) { return AK_NULLPTR; }
+    ak_slab_new_init(mem, sz, root->navail, fd, bk, root);
     return ak_ptr_cast(ak_slab, mem);
 }
 
@@ -287,15 +261,13 @@ ak_inline static void ak_slab_release_os_mem(ak_slab_root* root)
  * Initialize a slab allocator.
  * \param s; Pointer to the allocator root to initialize (non-NULL)
  * \param sz; Size of the slab elements (maximum allowed is 4000)
- * \param npages; Number of pages to allocate from the OS at once.
  * \param relrate; Release rate, \ref akmallocDox
  * \param maxpagefree; Number of segments to free upon release, \ref akmallocDox
  */
-static void ak_slab_init_root(ak_slab_root* s, ak_sz sz, ak_u32 npages, ak_u32 relrate, ak_u32 maxpagefree)
+static void ak_slab_init_root(ak_slab_root* s, ak_sz sz, ak_u32 relrate, ak_u32 maxpagefree)
 {
     s->sz = (ak_u32)sz;
     s->navail = (ak_u32)(AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))/(ak_u32)sz;
-    s->npages = npages;
     s->nempty = 0;
     s->release = 0;
 
@@ -315,7 +287,7 @@ static void ak_slab_init_root(ak_slab_root* s, ak_sz sz, ak_u32 npages, ak_u32 r
  */
 ak_inline static void ak_slab_init_root_default(ak_slab_root* s, ak_sz sz)
 {
-    ak_slab_init_root(s, sz, (ak_u32)ak_num_pages_for_sz(sz), (ak_u32)(AK_SLAB_RELEASE_RATE), (ak_u32)(AK_SLAB_MAX_PAGES_TO_FREE));
+    ak_slab_init_root(s, sz, (ak_u32)(AK_SLAB_RELEASE_RATE), (ak_u32)(AK_SLAB_MAX_PAGES_TO_FREE));
 }
 
 /*!
