@@ -4,6 +4,7 @@
  */
 
 #include "unittest.hpp"
+#include "mem.h"
 
 #include "akmalloc/malloc.h"
 #include "akmalloc/constants.h"
@@ -14,6 +15,30 @@
 #if !defined(USE_MALLOC)
 #  define USE_MALLOC 0
 #endif
+
+#define PRINT_MEM_USAGE
+
+#ifdef PRINT_MEM_USAGE
+#  define memtestsz printmemusg
+#  define memprintf printf
+#else
+#  define memtestsz(...) (void)0
+#  define memprintf(...) (void)0
+#endif
+
+template <class T>
+void printmemusg(T const* array, ak_sz n)
+{
+    ak_sz mem = 0;
+    for (ak_sz i = 0; i < n; ++i) {
+        mem += array[i];
+    }
+    if (mem > (1024*1024)) {
+        printf(" -- Mem usage in test: %f MB\n", double(mem)/(1024*1024));
+    } else {
+        printf(" -- Mem usage in test: %f KB\n", double(mem)/1024);
+    }
+}
 
 template <class T>
 void shuffle(T* array, ak_sz n)
@@ -27,6 +52,9 @@ void shuffle(T* array, ak_sz n)
             array[i] = t;
         }
     }
+
+#ifdef PRINT_MEM_USAGE
+#endif
 }
 
 CPP_TEST( allocRandomFreeSlab )
@@ -37,6 +65,7 @@ CPP_TEST( allocRandomFreeSlab )
 
     void* p[nptrs];
     ak_sz order[nptrs];
+    ak_sz sizes[nptrs];
 
     ASSERT_TRUE(RAND_MAX >= nptrs);
 
@@ -47,6 +76,7 @@ CPP_TEST( allocRandomFreeSlab )
 
     for (ak_sz i = 0; i < nptrs; ++i) {
         ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        sizes[i] = s;
 #if USE_MALLOC
         p[i] = malloc(s);
 #else
@@ -54,6 +84,9 @@ CPP_TEST( allocRandomFreeSlab )
 #endif
         memset(p[i], 42, s);
     }
+
+    memtestsz(sizes, nptrs);
+    memprintf(" -- Current RSS: %zu MB\n", getCurrentRSS()/(1024*1024));
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
 #if USE_MALLOC
@@ -90,6 +123,7 @@ CPP_TEST( allocRandomFreeCoalesceSmall )
 
     void* p[nptrs];
     ak_sz order[nptrs];
+    ak_sz sizes[nptrs];
 
     ASSERT_TRUE(RAND_MAX >= nptrs);
 
@@ -97,9 +131,10 @@ CPP_TEST( allocRandomFreeCoalesceSmall )
         order[i] = i;
     }
     shuffle(order, nptrs);
-
+    
     for (ak_sz i = 0; i < nptrs; ++i) {
         ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        sizes[i] = s;
 #if USE_MALLOC
         p[i] = malloc(s);
 #else
@@ -107,6 +142,9 @@ CPP_TEST( allocRandomFreeCoalesceSmall )
 #endif
         memset(p[i], 42, s);
     }
+
+    memtestsz(sizes, nptrs);
+    memprintf(" -- Current RSS: %zu MB\n", getCurrentRSS()/(1024*1024));
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
 #if USE_MALLOC
@@ -143,6 +181,7 @@ CPP_TEST( allocRandomFreeCoalesceMedium )
 
     void* p[nptrs];
     ak_sz order[nptrs];
+    ak_sz sizes[nptrs];
 
     ASSERT_TRUE(RAND_MAX >= nptrs);
 
@@ -153,6 +192,7 @@ CPP_TEST( allocRandomFreeCoalesceMedium )
 
     for (ak_sz i = 0; i < nptrs; ++i) {
         ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        sizes[i] = s;
 #if USE_MALLOC
         p[i] = malloc(s);
 #else
@@ -160,6 +200,9 @@ CPP_TEST( allocRandomFreeCoalesceMedium )
 #endif
         memset(p[i], 42, s);
     }
+
+    memtestsz(sizes, nptrs);
+    memprintf(" -- Current RSS: %zu MB\n", getCurrentRSS()/(1024*1024));
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
 #if USE_MALLOC
@@ -196,6 +239,7 @@ CPP_TEST( allocRandomFreeCoalesceLarge )
 
     void* p[nptrs];
     ak_sz order[nptrs];
+    ak_sz sizes[nptrs];
 
     ASSERT_TRUE(RAND_MAX >= nptrs);
 
@@ -206,6 +250,7 @@ CPP_TEST( allocRandomFreeCoalesceLarge )
 
     for (ak_sz i = 0; i < nptrs; ++i) {
         ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        sizes[i] = s;
 #if USE_MALLOC
         p[i] = malloc(s);
 #else
@@ -213,6 +258,9 @@ CPP_TEST( allocRandomFreeCoalesceLarge )
 #endif
         memset(p[i], 42, s);
     }
+
+    memtestsz(sizes, nptrs);
+    memprintf(" -- Current RSS: %zu MB\n", getCurrentRSS()/(1024*1024));
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
 #if USE_MALLOC
@@ -259,6 +307,7 @@ CPP_TEST( allocRandomFreeMap )
 
     void* p[nptrs];
     ak_sz order[nptrs];
+    ak_sz sizes[nptrs];
 
     ASSERT_TRUE(RAND_MAX >= nptrs);
 
@@ -269,6 +318,7 @@ CPP_TEST( allocRandomFreeMap )
 
     for (ak_sz i = 0; i < nptrs; ++i) {
         ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        sizes[i] = s;
 #if USE_MALLOC
         p[i] = malloc(s);
 #else
@@ -281,6 +331,9 @@ CPP_TEST( allocRandomFreeMap )
             pc[s-1] = 42;
         }
     }
+
+    memtestsz(sizes, nptrs);
+    memprintf(" -- Current RSS: %zu MB\n", getCurrentRSS()/(1024*1024));
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
 #if USE_MALLOC
@@ -343,6 +396,7 @@ void AllocDeallocTask()
 
     // randomize sizes
     shuffle(sizes, nptrs);
+    memtestsz(sizes, nptrs);
 
     for (ak_sz i = 0; i < nptrs; ++i) {
 #if USE_MALLOC
@@ -357,6 +411,8 @@ void AllocDeallocTask()
             pc[sizes[i]-1] = 42;
         }
     }
+
+    memprintf(" -- Current RSS: %zu MB\n", getCurrentRSS()/(1024*1024));
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
 #if USE_MALLOC
@@ -387,6 +443,8 @@ void AllocDeallocTask()
         ak_free(p[i]);
 #endif
     }
+
+    memprintf(" -- Current RSS: %zu MB\n", getCurrentRSS()/(1024*1024));
 }
 
 #include <vector>

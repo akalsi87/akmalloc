@@ -136,7 +136,8 @@ static void ak_memcpy(void* d, const void* s, ak_sz sz)
 
 #if !defined(MMAP_SIZE)
 #  if !AKMALLOC_WINDOWS
-#    define MMAP_SIZE (AK_SZ_ONE << 20) /* 1 MB */
+// #    define MMAP_SIZE (AK_SZ_ONE << 20) /* 1 MB */
+#    define MMAP_SIZE (AK_SZ_ONE << 17) /* 128KB */
 #  else/* Windows */
     /**
      * Memory mapping on Windows is slow. Put the entries in the large free list
@@ -157,7 +158,7 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
    144,  160,  176,  192,  208,  224,  240,  256
 };
 
-#define NCAROOTS 20
+#define NCAROOTS 17
 
 /*!
  * Sizes for the coalescing allocators in an \c ak_malloc_state
@@ -165,11 +166,11 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
  * Size here denotes maximum size request for each allocator.
  */
 static const ak_sz CA_SIZES[NCAROOTS] = {
-    768, 1408, 2048, 4096,
-    6000, 8192, 10000, 12000,
-    16384, 24000, 32000, 40000,
-    48000, 56000, 65536, 72000,
-    80000, 88000, 96000, MMAP_SIZE
+    512, 768, 1024, 1536,
+    2048, 3072, 4096, 6144,
+    8192, 12288, 16384, 24576,
+    32768, 49152, 65536, 98304, MMAP_SIZE
+//    131072, 196608, 262144, MMAP_SIZE
 };
 
 typedef struct ak_malloc_state_tag ak_malloc_state;
@@ -348,7 +349,8 @@ static void ak_malloc_init_state(ak_malloc_state* s)
 
     for (ak_sz i = 0; i != NCAROOTS; ++i) {
         // ak_ca_init_root(ak_as_ptr(s->ca[i]), AKMALLOC_COALESCING_ALLOC_RELEASE_RATE, AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
-        ak_ca_init_root(ak_as_ptr(s->ca[i]), (NCAROOTS-i) > 4 ? (NCAROOTS-i) : 4, AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
+        // ak_ca_init_root(ak_as_ptr(s->ca[i]), i > 7 ? (12-i) : 2, AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
+        ak_ca_init_root(ak_as_ptr(s->ca[i]), 0, AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
         s->ca[i].MIN_SIZE_TO_SPLIT = (i == 0) ? SLAB_SIZES[NSLABS-1] : CA_SIZES[i-1];
     }
 
