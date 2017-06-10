@@ -43,6 +43,10 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/rc.h"
 #include "akmalloc/types.h"
 
+#if defined(_WIN32)
+#  define AKMALLOC_USE_PREFIX 1
+#endif
+
 #if !defined(AKMALLOC_USE_PREFIX) || !AKMALLOC_USE_PREFIX
 #  define ak_malloc                   malloc
 #  define ak_calloc                   calloc
