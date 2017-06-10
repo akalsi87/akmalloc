@@ -82,10 +82,8 @@ typedef struct ak_ca_root_tag ak_ca_root;
 
 struct ak_alloc_node_tag
 {
-#if AKMALLOC_BITNESS == 32
     ak_alloc_info _unused0;
-    ak_alloc_info _unused1;
-#endif
+    ak_ca_root* root;
     ak_alloc_info previnfo;
     ak_alloc_info currinfo;
 };
@@ -273,6 +271,7 @@ ak_inline static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz,
             if ((nodesz - sz) > splitsz) {
                 // split and assign
                 ak_alloc_node* newnode = ak_ptr_cast(ak_alloc_node, (((char*)node) + sz));
+                newnode->root = n->root;
                 int islast = ak_ca_is_last(n->currinfo);
 
                 ak_ca_set_sz(ak_as_ptr(n->currinfo), sz);
@@ -314,6 +313,7 @@ static int ak_ca_add_new_segment(ak_ca_root* root, char* mem, ak_sz sz)
             ak_alloc_node* hd = seg->head;
             ak_sz actualsize = (sz - sizeof(ak_alloc_node) - sizeof(ak_ca_segment));
             // store actual size in previnfo
+            hd->root = root;
             hd->previnfo = actualsize;
             ak_ca_set_is_first(ak_as_ptr(hd->currinfo), 1);
             ak_ca_set_is_last(ak_as_ptr(hd->currinfo), 1);
@@ -448,6 +448,7 @@ ak_inline static void* ak_ca_realloc_in_place(ak_ca_root* root, void* mem, ak_sz
             if ((totalsz - newsz) > root->MIN_SIZE_TO_SPLIT) {
                 // split and assign
                 ak_alloc_node* newnode = ak_ptr_cast(ak_alloc_node, (((char*)(n + 1)) + newsz));
+                newnode->root = root;
                 int islast = ak_ca_is_last(n->currinfo);
 
                 ak_ca_set_sz(ak_as_ptr(n->currinfo), newsz);

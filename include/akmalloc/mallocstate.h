@@ -348,6 +348,7 @@ static void ak_malloc_init_state(ak_malloc_state* s)
 
     for (ak_sz i = 0; i != NCAROOTS; ++i) {
         ak_ca_init_root(ak_as_ptr(s->ca[i]), AKMALLOC_COALESCING_ALLOC_RELEASE_RATE, AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
+        s->ca[i].MIN_SIZE_TO_SPLIT = (i == 0) ? SLAB_SIZES[NSLABS-1] : CA_SIZES[i-1];
     }
 
     ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
@@ -421,9 +422,8 @@ ak_inline static void ak_free_to_state(ak_malloc_state* m, void* mem)
         } else {
             AKMALLOC_ASSERT(ak_alloc_type_coalesce(ty));
             const ak_alloc_node* n = ((const ak_alloc_node*)mem) - 1;
-            const ak_sz alnsz = ak_ca_to_sz(n->currinfo);
-            ak_ca_root* proot = ak_find_ca_root(m, alnsz);
-            DBG_PRINTF("d,ca[%d],%p,%llu\n", (int)(proot-ak_as_ptr(m->ca[0])), mem, alnsz);
+            ak_ca_root* proot = n->root;
+            DBG_PRINTF("d,ca[%d],%p,%llu\n", (int)(proot-ak_as_ptr(m->ca[0])), mem, ak_ca_to_sz(n->currinfo));
             ak_ca_free(proot, mem);
         }
     }

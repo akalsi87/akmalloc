@@ -66,7 +66,7 @@ For more information, please refer to <http://unlicense.org/>
 #endif
 
 #if defined(AKMALLOC_DEBUG_PRINT)
-#  define DBG_PRINTF(...) fprintf(stdout, __VA_ARGS__); fflush(stdout)
+#  define DBG_PRINTF(...) fprintf(stderr, __VA_ARGS__)
 #else
 #  define DBG_PRINTF(...) (void)0
 #endif/*defined(AKMALLOC_DEBUG_PRINT)*/
