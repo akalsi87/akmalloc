@@ -42,7 +42,9 @@ For more information, please refer to <http://unlicense.org/>
 #if AKMALLOC_WINDOWS
 
 #define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
+#ifndef NOMINMAX
+#  define NOMINMAX
+#endif
 #include <Windows.h>
 
 ak_inline static ak_sz ak_page_size()
@@ -68,6 +70,7 @@ ak_inline static void ak_munmap(void* p, ak_sz s)
     //fprintf(stderr, "d: %p\n", p);
     BOOL ret = VirtualFree(p, 0, MEM_RELEASE);
     AKMALLOC_ASSERT(ret);
+    (void)ret;
 }
 
 #else
