@@ -16,7 +16,7 @@
 #  define USE_MALLOC 0
 #endif
 
-#define PRINT_MEM_USAGE
+// #define PRINT_MEM_USAGE
 
 #ifdef PRINT_MEM_USAGE
 #  define memtestsz printmemusg

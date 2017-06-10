@@ -197,7 +197,6 @@ namespace platform
 
     inline bool issharedregion(mach_vm_address_t addr)
     {
-        static const pid_t pid = getpid();
         static cpu_type_t cputype;
         static bool gotcputype = false;
         if (!gotcputype) {
