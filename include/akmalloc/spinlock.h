@@ -87,7 +87,7 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
 #  define SPINS_PER_YIELD 3
 #endif
 
-    ak_u32 max_spins_per_yield = 127;
+    ak_u32 max_spins_per_yield = 255;
     ak_u32 spins_per_yield = SPINS_PER_YIELD;
 
     if (ak_atomic_xchg(&(p->islocked), 1)) {
@@ -101,8 +101,8 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
                 ak_os_sleep(40);
                 // ak_spinlock_yield();
 #elif AKMALLOC_LINUX
-                // ak_os_sleep(5);
-                ak_spinlock_yield();
+                ak_os_sleep(1);
+                // ak_spinlock_yield();
 #else
                 ak_spinlock_yield();
 #endif
