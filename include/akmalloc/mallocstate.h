@@ -345,7 +345,7 @@ static void ak_malloc_init_state(ak_malloc_state* s)
     }
 
     for (ak_sz i = 0; i != NCAROOTS; ++i) {
-        ak_ca_init_root(ak_as_ptr(s->ca[i]), (NCAROOTS-i) > 2 ? (NCAROOTS-i) : 2, AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
+        ak_ca_init_root(ak_as_ptr(s->ca[i]), (ak_u32)((NCAROOTS-i) > 2 ? (NCAROOTS-i) : 2), AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
         s->ca[i].MIN_SIZE_TO_SPLIT = (i == 0) ? SLAB_SIZES[NSLABS-1] : CA_SIZES[i-1];
     }
 
