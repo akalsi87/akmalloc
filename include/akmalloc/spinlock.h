@@ -42,7 +42,7 @@ typedef struct ak_spinlock_tag ak_spinlock;
 
 struct ak_spinlock_tag
 {
-    ak_u32 islocked;  
+    ak_u32 islocked;
 };
 
 static void ak_os_sleep(ak_u32 micros);
@@ -124,7 +124,9 @@ ak_inline static void ak_spinlock_release(ak_spinlock* p)
 #if AKMALLOC_WINDOWS
 
 #define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
+#ifndef NOMINMAX
+#  define NOMINMAX
+#endif
 #include <Windows.h>
 
 static void ak_os_sleep(ak_u32 micros)

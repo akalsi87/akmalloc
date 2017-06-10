@@ -36,6 +36,10 @@ For more information, please refer to <http://unlicense.org/>
 /* We only include this to get size_t */
 #include <stddef.h>
 
+#if defined(_WIN32)
+#  define AKMALLOC_USE_PREFIX 1
+#endif
+
 #include "akmalloc/rc.h"
 #include "akmalloc/types.h"
 
