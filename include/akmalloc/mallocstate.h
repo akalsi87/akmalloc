@@ -181,9 +181,9 @@ static const ak_sz CA_SEG_SIZES[NCAROOTS] = {
 };
 
 static const ak_sz CA_REL_RATE[NCAROOTS] = {
-    8, 8, 8, 4,
-    4, 4, 3, 3,
+    4, 4, 4, 3,
     3, 3, 3, 2,
+    2, 2, 2, 2,
     2, 1
 };
 
@@ -359,9 +359,9 @@ static void ak_malloc_init_state(ak_malloc_state* s)
 
     for (ak_sz i = 0; i != NSLABS; ++i) {
         ak_slab_init_root_default(ak_as_ptr(s->slabs[i]), SLAB_SIZES[i]);
-        s->slabs[i].RELEASE_RATE = 6;
+        s->slabs[i].RELEASE_RATE = 8;
         // init the pages
-        ak_slab_free(ak_slab_alloc(ak_as_ptr(s->slabs[i])));
+        // ak_slab_free(ak_slab_alloc(ak_as_ptr(s->slabs[i])));
     }
 
     for (ak_sz i = 0; i != NCAROOTS; ++i) {

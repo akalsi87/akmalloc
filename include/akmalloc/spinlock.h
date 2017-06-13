@@ -106,8 +106,8 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
                 ak_os_sleep(40);
                 // ak_spinlock_yield();
 #elif AKMALLOC_LINUX
-                ak_os_sleep(1);
-                // ak_spinlock_yield();
+                // ak_os_sleep(1);
+                ak_spinlock_yield();
 #else
                 ak_spinlock_yield();
 #endif
