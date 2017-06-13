@@ -52,9 +52,6 @@ void shuffle(T* array, ak_sz n)
             array[i] = t;
         }
     }
-
-#ifdef PRINT_MEM_USAGE
-#endif
 }
 
 CPP_TEST( allocRandomFreeSlab )

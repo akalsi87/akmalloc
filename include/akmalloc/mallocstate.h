@@ -137,7 +137,7 @@ static void ak_memcpy(void* d, const void* s, ak_sz sz)
 #if !defined(MMAP_SIZE)
 // #  if !AKMALLOC_WINDOWS
 // #    define MMAP_SIZE (AK_SZ_ONE << 20) /* 1 MB */
-#    define MMAP_SIZE (AK_SZ_ONE << 20) /* 1MB */
+#    define MMAP_SIZE (AK_SZ_ONE << 16) /* 64KB */
 // #  else/* Windows */
     /**
      * Memory mapping on Windows is slow. Put the entries in the large free list
@@ -158,7 +158,7 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
    144,  160,  176,  192,  208,  224,  240,  256
 };
 
-#define NCAROOTS 16
+#define NCAROOTS 14
 
 /*!
  * Sizes for the coalescing allocators in an \c ak_malloc_state
@@ -169,8 +169,22 @@ static const ak_sz CA_SIZES[NCAROOTS] = {
     512, 768, 1024, 1536,
     2048, 3072, 4096, 6144,
     8192, 12288, 16384, 24576,
-    32768, 49152, 65536, MMAP_SIZE
+    32768, MMAP_SIZE
 //    131072, 196608, 262144, MMAP_SIZE
+};
+
+static const ak_sz CA_SEG_SIZES[NCAROOTS] = {
+    4096, 4096, 4096, 8192,
+    8192, 8192, 16384, 16384,
+    32768, 32768, 32768, 32768,
+    131072, 8192
+};
+
+static const ak_sz CA_REL_RATE[NCAROOTS] = {
+    8, 8, 8, 4,
+    4, 4, 3, 3,
+    3, 3, 3, 2,
+    2, 1
 };
 
 typedef struct ak_malloc_state_tag ak_malloc_state;
@@ -345,15 +359,15 @@ static void ak_malloc_init_state(ak_malloc_state* s)
 
     for (ak_sz i = 0; i != NSLABS; ++i) {
         ak_slab_init_root_default(ak_as_ptr(s->slabs[i]), SLAB_SIZES[i]);
-        s->slabs[i].RELEASE_RATE = 8;
+        s->slabs[i].RELEASE_RATE = 6;
+        // init the pages
+        ak_slab_free(ak_slab_alloc(ak_as_ptr(s->slabs[i])));
     }
 
     for (ak_sz i = 0; i != NCAROOTS; ++i) {
-        // ak_ca_init_root(ak_as_ptr(s->ca[i]), AKMALLOC_COALESCING_ALLOC_RELEASE_RATE, AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
-        // ak_ca_init_root(ak_as_ptr(s->ca[i]), i > 7 ? (12-i) : 2, AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
-        ak_ca_init_root(ak_as_ptr(s->ca[i]), 0, AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
+        ak_ca_init_root(ak_as_ptr(s->ca[i]), CA_REL_RATE[i], AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
         s->ca[i].MIN_SIZE_TO_SPLIT = (i == 0) ? SLAB_SIZES[NSLABS-1] : CA_SIZES[i-1];
-        s->ca[i].SEGMENT_SIZE = CA_SIZES[i] < 4096 ? 16384 : CA_SIZES[i] < 16384 ? 65536 : 262144;
+        s->ca[i].SEGMENT_SIZE = CA_SEG_SIZES[i];
     }
 
     ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
@@ -392,7 +406,7 @@ static void ak_malloc_destroy_state(ak_malloc_state* m)
  *
  * \return \c 0 on failure, else pointer to at least \p n bytes of memory.
  */
-static void* ak_malloc_from_state(ak_malloc_state* m, size_t sz)
+ak_inline static void* ak_malloc_from_state(ak_malloc_state* m, size_t sz)
 {
     AKMALLOC_ASSERT(m->init);
     void* mem = ak_try_alloc(m, sz);

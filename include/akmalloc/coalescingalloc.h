@@ -491,7 +491,7 @@ ak_inline static void* ak_ca_realloc_in_place(ak_ca_root* root, void* mem, ak_sz
  *
  * \return \c 0 on failure, else pointer to at least \p s bytes of memory.
  */
-static void* ak_ca_alloc(ak_ca_root* root, ak_sz s)
+ak_inline static void* ak_ca_alloc(ak_ca_root* root, ak_sz s)
 {
     // align and round size
     ak_sz sz = ak_ca_aligned_size(s);
