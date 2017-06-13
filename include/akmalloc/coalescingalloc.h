@@ -274,7 +274,7 @@ ak_inline static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz,
         AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
         ak_sz nodesz = ak_ca_to_sz(n->currinfo);
         if (nodesz >= sz) {
-            if ((nodesz - sz) > splitsz) {
+            if ((nodesz - sz) >= splitsz) {
                 // split and assign
                 ak_alloc_node* newnode = ak_ptr_cast(ak_alloc_node, (((char*)node) + sz));
                 newnode->root = n->root;
@@ -452,7 +452,7 @@ ak_inline static void* ak_ca_realloc_in_place(ak_ca_root* root, void* mem, ak_sz
             ak_ca_set_sz(ak_as_ptr(n->currinfo), totalsz);
             ak_ca_update_footer(n);
 
-            if ((totalsz - newsz) > root->MIN_SIZE_TO_SPLIT) {
+            if ((totalsz - newsz) >= (root->MIN_SIZE_TO_SPLIT + sizeof(ak_alloc_node))) {
                 // split and assign
                 ak_alloc_node* newnode = ak_ptr_cast(ak_alloc_node, (((char*)(n + 1)) + newsz));
                 newnode->root = root;
