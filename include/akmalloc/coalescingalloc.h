@@ -121,6 +121,8 @@ struct ak_ca_root_tag
                                          split a free list node */
 
     AK_CA_LOCK_DEFINE(LOCKED);      /**< lock for this allocator if locks are enabled */
+
+    ak_sz SEGMENT_SIZE;
 };
 
 /**************************************************************/
@@ -252,7 +254,11 @@ ak_inline static void ak_ca_update_footer(ak_alloc_node* p)
 
 #define ak_ca_aligned_size(x) ((x) ? (((x) + AK_COALESCE_ALIGN - 1) & ~(AK_COALESCE_ALIGN - 1)) : AK_COALESCE_ALIGN)
 
-#define ak_ca_aligned_segment_size(x) (((x) + (AK_COALESCE_SEGMENT_SIZE) - 1) & ~((AK_COALESCE_SEGMENT_SIZE) - 1))
+ak_inline ak_sz ak_ca_aligned_segment_size(ak_ca_root* root, ak_sz sz)
+{
+    ak_sz seg_sz = root->SEGMENT_SIZE;
+    return ((sz + seg_sz - 1) / seg_sz) * seg_sz;
+}
 
 ak_inline static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz, ak_sz splitsz)
 {
@@ -331,7 +337,7 @@ static int ak_ca_get_new_segment(ak_ca_root* root, ak_sz sz)
 {
     // align to segment size multiple
     sz += sizeof(ak_ca_segment) + sizeof(ak_alloc_node) + sizeof(ak_free_list_node);
-    sz = ak_ca_aligned_segment_size(sz);
+    sz = ak_ca_aligned_segment_size(root, sz);
 
     // search empty_root for a segment that is as big or more
     char* mem = AK_NULLPTR;
@@ -390,6 +396,7 @@ static void ak_ca_init_root(ak_ca_root* root, ak_u32 relrate, ak_u32 maxsegstofr
     root->MAX_SEGMENTS_TO_FREE = maxsegstofree;
     root->MIN_SIZE_TO_SPLIT = (sizeof(ak_free_list_node) >= AK_COALESCE_ALIGN) ? sizeof(ak_free_list_node) : AK_COALESCE_ALIGN;
     AK_CA_LOCK_INIT(root);
+    root->SEGMENT_SIZE = 131072;
 }
 
 /*!

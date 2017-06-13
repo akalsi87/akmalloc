@@ -98,7 +98,7 @@ struct ak_slab_free_node_tag
 };
 
 #if !defined(AK_SLAB_RELEASE_RATE)
-#  define AK_SLAB_RELEASE_RATE 127
+#  define AK_SLAB_RELEASE_RATE 31
 #endif
 
 #if !defined(AK_SLAB_MAX_PAGES_TO_FREE)

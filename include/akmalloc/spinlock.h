@@ -52,17 +52,22 @@ static void ak_spinlock_yield();
 #if !AKMALLOC_MSVC && (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) > 40100
 #  define ak_atomic_cas(px, nx, ox) __sync_bool_compare_and_swap((px), (ox), (nx))
 #  define ak_atomic_xchg(px, nx) __sync_lock_test_and_set((px), (nx))
+#  define ak_atomic_incr(px) __sync_add_and_fetch((px),1)
 #else/* Windows */
 #  ifndef _M_AMD64
    /* These are already defined on AMD64 builds */
    AK_EXTERN_C_BEGIN
      long __cdecl _InterlockedCompareExchange(long volatile* Target, long NewValue, long OldValue);
      long __cdecl _InterlockedExchange(long volatile* Target, long NewValue);
+     long __cdecl _InterlockedIncrement(long volatile* Target);
    AK_EXTERN_C_END
 #    pragma intrinsic (_InterlockedCompareExchange)
+#    pragma intrinsic (_InterlockedExchange)
+#    pragma intrinsic (_InterlockedIncrement)
 #  endif /* _M_AMD64 */
 #  define ak_atomic_cas(px, nx, ox) (_InterlockedCompareExchange((volatile long*)(px), (nx), (ox)) == (ox))
 #  define ak_atomic_xchg(px, nx) _InterlockedExchange((volatile long*)(px), (nx))
+#  define ak_atomic_incr(px) _InterlockedIncrement((volatile long*)(px))
 #endif/* Windows */
 
 ak_inline static int ak_spinlock_is_locked(ak_spinlock* p)
