@@ -467,9 +467,7 @@ ak_inline static void* ak_realloc_in_place_from_state(ak_malloc_state* m, void* 
         ak_alloc_node* n = ak_ptr_cast(ak_alloc_node, mem) - 1;
         AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
         // check if there is a free next, if so, maybe merge
-        ak_sz sz = ak_ca_to_sz(n->currinfo);
-        ak_ca_root* proot = ak_find_ca_root(m, sz);
-        if (ak_ca_realloc_in_place(proot, mem, newsz)) {
+        if (ak_ca_realloc_in_place(n->root, mem, newsz)) {
             return mem;
         }
     }
