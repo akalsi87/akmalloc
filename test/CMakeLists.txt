@@ -32,10 +32,6 @@ add_test_exe    (tMapUnmap tMapUnmap.cpp)
 test_link_libs  (tMapUnmap )
 test_create     (tMapUnmap)
 
-add_test_exe    (tBitSet tBitSet.cpp)
-test_link_libs  (tBitSet )
-test_create     (tBitSet)
-
 add_test_exe    (tSlab tSlab.cpp)
 test_link_libs  (tSlab )
 test_create     (tSlab)

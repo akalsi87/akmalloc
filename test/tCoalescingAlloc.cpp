@@ -100,6 +100,22 @@ void shuffle(ak_sz* array, ak_sz n)
     }
 }
 
+CPP_TEST( reallocInPlace )
+{
+    ak_ca_root r;
+    ak_ca_init_root(&r, 1, 1);
+    void* ptr = ak_ca_alloc(&r, 100);
+    TEST_TRUE(ptr);
+    memset(ptr, 42, 100);
+    void* new_ptr = ak_ca_realloc_in_place(&r, ptr, 140);
+    TEST_TRUE(new_ptr == ptr);
+    memset(ptr, 42, 140);
+    void* newer_ptr = ak_ca_realloc_in_place(&r, new_ptr, 10000000000);
+    TEST_TRUE(newer_ptr == 0);
+    ak_ca_free(&r, ptr);
+    ak_ca_destroy(&r);
+}
+
 CPP_TEST( allocRandomFree )
 {
     static const ak_sz nptrs = 10000;

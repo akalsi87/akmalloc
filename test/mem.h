@@ -1,11 +1,8 @@
 #if defined(__linux__)
-#  define platform linux
 #  define LINUX 1
 #elif defined(__APPLE__)
-#  define platform apple
 #  define APPLE 1
 #elif defined(_WIN32)
-#  define platform windows
 #  define WINDOWS 1
 #else // unknown platform
 #  error "Unsupported platform!"
