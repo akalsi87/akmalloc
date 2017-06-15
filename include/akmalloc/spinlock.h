@@ -39,7 +39,7 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/inline.h"
 
 #if AKMALLOC_GCC || AKMALLOC_CLANG
-// #  define AKMALLOC_USE_CK
+#  define AKMALLOC_USE_CK
 #endif
 
 #ifndef AKMALLOC_USE_CK
