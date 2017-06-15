@@ -39,6 +39,44 @@ set(akmalloc_exp_hdr
     ${xprt}/exportsym.h
     )
 
+set(akmalloc_ck_hdr
+    ${xprt}/external/ck/ck_backoff.h;
+    ${xprt}/external/ck/ck_cc.h;
+    ${xprt}/external/ck/ck_elide.h;
+    ${xprt}/external/ck/ck_limits.h;
+    ${xprt}/external/ck/ck_md.h;
+    ${xprt}/external/ck/ck_pr.h;
+    ${xprt}/external/ck/ck_spinlock.h;
+    ${xprt}/external/ck/ck_stdbool.h;
+    ${xprt}/external/ck/ck_stdint.h;
+    ${xprt}/external/ck/ck_string.h;
+    ${xprt}/external/ck/spinlock/fas.h;
+    ${xprt}/external/ck/gcc/ck_cc.h;
+    ${xprt}/external/ck/gcc/ck_f_pr.h;
+    ${xprt}/external/ck/gcc/ck_pr.h;
+    ${xprt}/external/ck/gcc/aarch64/ck_f_pr.h;
+    ${xprt}/external/ck/gcc/aarch64/ck_pr.h;
+    ${xprt}/external/ck/gcc/aarch64/ck_pr_llsc.h;
+    ${xprt}/external/ck/gcc/aarch64/ck_pr_lse.h;
+    ${xprt}/external/ck/gcc/arm/ck_f_pr.h;
+    ${xprt}/external/ck/gcc/arm/ck_pr.h;
+    ${xprt}/external/ck/gcc/ppc/ck_f_pr.h;
+    ${xprt}/external/ck/gcc/ppc/ck_pr.h;
+    ${xprt}/external/ck/gcc/ppc64/ck_f_pr.h;
+    ${xprt}/external/ck/gcc/ppc64/ck_pr.h;
+    ${xprt}/external/ck/gcc/s390x/ck_f_pr.h;
+    ${xprt}/external/ck/gcc/s390x/ck_pr.h;
+    ${xprt}/external/ck/gcc/sparcv9/ck_f_pr.h;
+    ${xprt}/external/ck/gcc/sparcv9/ck_pr.h;
+    ${xprt}/external/ck/gcc/x86/ck_f_pr.h;
+    ${xprt}/external/ck/gcc/x86/ck_pr.h;
+    ${xprt}/external/ck/gcc/x86_64/ck_f_pr.h;
+    ${xprt}/external/ck/gcc/x86_64/ck_pr.h;
+    ${xprt}/external/ck/gcc/x86_64/ck_pr_rtm.h;
+    )
+
+set(akmalloc_exp_hdr ${akmalloc_exp_hdr} ${akmalloc_ck_hdr})
+
 set(akmalloc_all_src ${akmalloc_exp_hdr};${akmalloc_impl})
 if (AKMALLOC_LIBRARY)
   add_lib(akmalloc SHARED ${akmalloc_impl})

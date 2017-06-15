@@ -4,7 +4,6 @@
  */
 
 #include "unittest.hpp"
-#include "mem.h"
 
 #include "akmalloc/malloc.h"
 #include "akmalloc/constants.h"
@@ -16,9 +15,10 @@
 #  define USE_MALLOC 0
 #endif
 
-#define PRINT_MEM_USAGE
+// #define PRINT_MEM_USAGE
 
 #ifdef PRINT_MEM_USAGE
+#include "mem.h"
 #  define memtestsz printmemusg
 #  define memprintf printf
 #else
@@ -69,6 +69,7 @@ CPP_TEST( allocRandomFreeSlab )
     void* p[nptrs];
     ak_sz order[nptrs];
     ak_sz sizes[nptrs];
+    (void)sizes;
 
     ASSERT_TRUE(RAND_MAX >= nptrs);
 
@@ -127,7 +128,7 @@ CPP_TEST( allocRandomFreeCoalesceSmall )
     void* p[nptrs];
     ak_sz order[nptrs];
     ak_sz sizes[nptrs];
-
+    (void)sizes;
     ASSERT_TRUE(RAND_MAX >= nptrs);
 
     for (ak_sz i = 0; i < nptrs; ++i) {
@@ -185,7 +186,7 @@ CPP_TEST( allocRandomFreeCoalesceMedium )
     void* p[nptrs];
     ak_sz order[nptrs];
     ak_sz sizes[nptrs];
-
+    (void)sizes;
     ASSERT_TRUE(RAND_MAX >= nptrs);
 
     for (ak_sz i = 0; i < nptrs; ++i) {
@@ -243,7 +244,7 @@ CPP_TEST( allocRandomFreeCoalesceLarge )
     void* p[nptrs];
     ak_sz order[nptrs];
     ak_sz sizes[nptrs];
-
+    (void)sizes;
     ASSERT_TRUE(RAND_MAX >= nptrs);
 
     for (ak_sz i = 0; i < nptrs; ++i) {
@@ -311,7 +312,7 @@ CPP_TEST( allocRandomFreeMap )
     void* p[nptrs];
     ak_sz order[nptrs];
     ak_sz sizes[nptrs];
-
+    (void)sizes;
     ASSERT_TRUE(RAND_MAX >= nptrs);
 
     for (ak_sz i = 0; i < nptrs; ++i) {

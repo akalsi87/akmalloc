@@ -44,12 +44,24 @@ if (NOT WIN32) # UNIX test
 add_test_exe    (malloctest malloctest.c)
 add_comp_flag   (malloctest -pthread)
 add_link_flag   (malloctest -pthread)
+
+file(APPEND malloctest.toi/CMakeLists.txt
+"add_comp_flag   (malloctest_install -pthread)
+ add_link_flag   (malloctest_install -pthread)
+")
+
 test_link_libs  (malloctest ${to_link})
 test_create     (malloctest)
 
 add_test_exe    (malloctestRef malloctest.c)
 add_comp_flag   (malloctestRef -pthread)
 add_link_flag   (malloctestRef -pthread)
+
+file(APPEND malloctestRef.toi/CMakeLists.txt
+"add_comp_flag   (malloctestRef_install -pthread)
+ add_link_flag   (malloctestRef_install -pthread)
+")
+
 test_link_libs  (malloctestRef )
 test_create     (malloctestRef)
 endif()
