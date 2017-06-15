@@ -51,11 +51,12 @@ static int MALLOC_INIT = 0;
 
 static ak_malloc_state MALLOC_ROOT;
 static ak_malloc_state* GMSTATE = AK_NULLPTR;
-static ak_spinlock MALLOC_INIT_LOCK = { 0 };
+static ak_spinlock MALLOC_INIT_LOCK;
 
 #define ak_ensure_malloc_state_init()                        \
 {                                                            \
     if (ak_unlikely(!MALLOC_INIT)) {                         \
+        ak_spinlock_init(&MALLOC_INIT_LOCK);                 \
         AKMALLOC_LOCK_ACQUIRE(ak_as_ptr(MALLOC_INIT_LOCK));  \
         if (MALLOC_INIT != 1) {                              \
             GMSTATE = &MALLOC_ROOT;                          \

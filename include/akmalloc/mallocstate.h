@@ -176,15 +176,15 @@ static const ak_sz CA_SIZES[NCAROOTS] = {
 };
 
 static const ak_sz CA_SEG_SIZES[NCAROOTS] = {
-    4096, 4096, 4096, 8192,
     8192, 8192, 32768, 32768,
-    32768, 32768, 32768, 32768,
-    131072, 8192
+    65536, 65536, 131072, 131072,
+    131072, 131072, 131072, 131072,
+    131072, 65536
 };
 
 static const ak_sz CA_REL_RATE[NCAROOTS] = {
-    4, 4, 4, 3,
-    3, 2, 2, 2,
+    8, 8, 4, 4,
+    3, 3, 2, 2,
     2, 2, 2, 2,
     2, 1
 };
@@ -369,7 +369,11 @@ static void ak_malloc_init_state(ak_malloc_state* s)
         ak_ca_init_root(ak_as_ptr(s->ca[i]), CA_REL_RATE[i], AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
         s->ca[i].MIN_SIZE_TO_SPLIT = (i == 0) ? SLAB_SIZES[NSLABS-1] : CA_SIZES[i-1];
         s->ca[i].SEGMENT_SIZE = CA_SEG_SIZES[i];
-        ak_ca_add_new_segment_no_search(ak_as_ptr(s->ca[i]), CA_REL_RATE[i] - 1);
+        if (i != NCAROOTS-1) {
+            for (ak_sz j = 0; j < CA_REL_RATE[i]-1; ++j) {
+                ak_ca_add_new_segment_no_search(ak_as_ptr(s->ca[i]), s->ca[i].MIN_SIZE_TO_SPLIT);
+            }
+        }
     }
 
     ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
