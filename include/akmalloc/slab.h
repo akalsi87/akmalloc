@@ -387,4 +387,12 @@ static void ak_slab_destroy(ak_slab_root* root)
     root->release = 0;
 }
 
+static void ak_slab_init_pages(ak_slab_root* root, ak_u32 npages)
+{
+    for (ak_u32 i = 0; i < npages; ++i) {
+        ak_slab_new_alloc(AKMALLOC_DEFAULT_PAGE_SIZE, root->empty_root.fd, ak_as_ptr(root->empty_root), root);
+    }
+    root->nempty += npages;
+}
+
 #endif/*AKMALLOC_SLAB_H*/

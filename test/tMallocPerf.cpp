@@ -26,6 +26,12 @@
 #  define memprintf(...) (void)0
 #endif
 
+static int rand_num()
+{
+    int const r = rand();
+    return (r << 15) | (r >> 17);
+}
+
 template <class T>
 void printmemusg(T const* array, ak_sz n)
 {
@@ -46,7 +52,7 @@ void shuffle(T* array, ak_sz n)
     if (n > 1) {
         ak_sz i;
         for (i = 0; i < n - 1; i++) {
-            ak_sz j = i + rand() / (RAND_MAX / (n - i) + 1);
+            ak_sz j = i + (rand_num() % (n - i));
             T t = array[j];
             array[j] = array[i];
             array[i] = t;
@@ -72,7 +78,7 @@ CPP_TEST( allocRandomFreeSlab )
     shuffle(order, nptrs);
 
     for (ak_sz i = 0; i < nptrs; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        ak_sz s = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
         sizes[i] = s;
 #if USE_MALLOC
         p[i] = malloc(s);
@@ -94,7 +100,7 @@ CPP_TEST( allocRandomFreeSlab )
     }
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        ak_sz s = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
 #if USE_MALLOC
         p[order[i]] = malloc(s);
 #else
@@ -130,7 +136,7 @@ CPP_TEST( allocRandomFreeCoalesceSmall )
     shuffle(order, nptrs);
     
     for (ak_sz i = 0; i < nptrs; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        ak_sz s = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
         sizes[i] = s;
 #if USE_MALLOC
         p[i] = malloc(s);
@@ -152,7 +158,7 @@ CPP_TEST( allocRandomFreeCoalesceSmall )
     }
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        ak_sz s = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
 #if USE_MALLOC
         p[order[i]] = malloc(s);
 #else
@@ -188,7 +194,7 @@ CPP_TEST( allocRandomFreeCoalesceMedium )
     shuffle(order, nptrs);
 
     for (ak_sz i = 0; i < nptrs; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        ak_sz s = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
         sizes[i] = s;
 #if USE_MALLOC
         p[i] = malloc(s);
@@ -210,7 +216,7 @@ CPP_TEST( allocRandomFreeCoalesceMedium )
     }
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        ak_sz s = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
 #if USE_MALLOC
         p[order[i]] = malloc(s);
 #else
@@ -246,7 +252,7 @@ CPP_TEST( allocRandomFreeCoalesceLarge )
     shuffle(order, nptrs);
 
     for (ak_sz i = 0; i < nptrs; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        ak_sz s = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
         sizes[i] = s;
 #if USE_MALLOC
         p[i] = malloc(s);
@@ -268,7 +274,7 @@ CPP_TEST( allocRandomFreeCoalesceLarge )
     }
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        ak_sz s = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
 #if USE_MALLOC
         p[order[i]] = malloc(s);
 #else
@@ -314,7 +320,7 @@ CPP_TEST( allocRandomFreeMap )
     shuffle(order, nptrs);
 
     for (ak_sz i = 0; i < nptrs; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        ak_sz s = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
         sizes[i] = s;
 #if USE_MALLOC
         p[i] = malloc(s);
@@ -341,7 +347,7 @@ CPP_TEST( allocRandomFreeMap )
     }
 
     for (ak_sz i = 0; i < nptrs/2; ++i) {
-        ak_sz s = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        ak_sz s = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
 #if USE_MALLOC
         p[order[i]] = malloc(s);
 #else
@@ -382,13 +388,13 @@ void AllocDeallocTask()
     sizemax = 256;
 
     for (ak_sz i = 0; i < (nptrs*7)/10; ++i) {
-        sizes[i] = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        sizes[i] = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
     }
 
     sizemin =               257;
     sizemax = (AK_SZ_ONE << 21);
     for (ak_sz i = (nptrs*7)/10; i < nptrs; ++i) {
-        sizes[i] = (rand() % (sizemax - sizemin + 1)) + sizemin;
+        sizes[i] = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
     }
 
     // randomize sizes

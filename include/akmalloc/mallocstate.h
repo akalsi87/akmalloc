@@ -158,6 +158,8 @@ static const ak_sz SLAB_SIZES[NSLABS] = {
    144,  160,  176,  192,  208,  224,  240,  256
 };
 
+#define SLAB_REL_RATE 6
+
 #define NCAROOTS 14
 
 /*!
@@ -359,15 +361,15 @@ static void ak_malloc_init_state(ak_malloc_state* s)
 
     for (ak_sz i = 0; i != NSLABS; ++i) {
         ak_slab_init_root_default(ak_as_ptr(s->slabs[i]), SLAB_SIZES[i]);
-        s->slabs[i].RELEASE_RATE = 8;
-        // init the pages
-        // ak_slab_free(ak_slab_alloc(ak_as_ptr(s->slabs[i])));
+        s->slabs[i].RELEASE_RATE = SLAB_REL_RATE;
+        ak_slab_init_pages(ak_as_ptr(s->slabs[i]), SLAB_REL_RATE - 1);
     }
 
     for (ak_sz i = 0; i != NCAROOTS; ++i) {
         ak_ca_init_root(ak_as_ptr(s->ca[i]), CA_REL_RATE[i], AKMALLOC_COALESCING_ALLOC_MAX_PAGES_TO_FREE);
         s->ca[i].MIN_SIZE_TO_SPLIT = (i == 0) ? SLAB_SIZES[NSLABS-1] : CA_SIZES[i-1];
         s->ca[i].SEGMENT_SIZE = CA_SEG_SIZES[i];
+        ak_ca_add_new_segment_no_search(ak_as_ptr(s->ca[i]), CA_REL_RATE[i] - 1);
     }
 
     ak_ca_segment_link(ak_as_ptr(s->map_root), ak_as_ptr(s->map_root), ak_as_ptr(s->map_root));
