@@ -39,7 +39,7 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/inline.h"
 
 #if AKMALLOC_GCC || AKMALLOC_CLANG
-#  define AKMALLOC_USE_CK
+// #  define AKMALLOC_USE_CK
 #endif
 
 #ifndef AKMALLOC_USE_CK
@@ -76,9 +76,11 @@ static void ak_spinlock_yield();
 #  define ak_atomic_incr(px) _InterlockedIncrement((volatile long*)(px))
 #endif/* Windows */
 
+#ifdef AKMALLOC_USE_CK
 #include "external/ck/ck_spinlock.h"
 
 typedef ck_spinlock_t ak_spinlock;
+#endif
 
 ak_inline static int ak_spinlock_is_locked(ak_spinlock* p)
 {
