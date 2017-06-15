@@ -40,11 +40,19 @@ add_test_exe    (tCoalescingAlloc tCoalescingAlloc.cpp)
 test_link_libs  (tCoalescingAlloc )
 test_create     (tCoalescingAlloc)
 
-# if (NOT WIN32) # UNIX test
-# add_test_exe    (malloctest malloctest.c)
-# test_link_libs  (malloctest ${to_link})
-# test_create     (malloctest)
-# endif()
+if (NOT WIN32) # UNIX test
+add_test_exe    (malloctest malloctest.c)
+add_comp_flag   (malloctest -pthread)
+add_link_flag   (malloctest -pthread)
+test_link_libs  (malloctest ${to_link})
+test_create     (malloctest)
+
+add_test_exe    (malloctestRef malloctest.c)
+add_comp_flag   (malloctestRef -pthread)
+add_link_flag   (malloctestRef -pthread)
+test_link_libs  (malloctestRef )
+test_create     (malloctestRef)
+endif()
 
 add_test_exe    (tMallocPerf tMallocPerf.cpp)
 add_comp_def    (tMallocPerf ${compdef})

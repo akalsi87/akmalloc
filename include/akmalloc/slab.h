@@ -163,7 +163,7 @@ ak_inline static void ak_slab_init_chain_head(ak_slab* s, ak_slab_root* rootp)
     s->ref_count = 0;
 }
 
-#define ak_slab_init(m, s, av, r)                                             \
+#define ak_slab_new_init_m(m, s, av, r)                                       \
   do {                                                                        \
     void* slabmem = (m);                                                      \
     ak_sz slabsz = (s);                                                       \
@@ -186,9 +186,39 @@ ak_inline static void ak_slab_init_chain_head(ak_slab* s, ak_slab_root* rootp)
     (void)slabsz;                                                             \
   } while (0)
 
+#define ak_slab_reuse_init_m(m, s, av, r)                                     \
+  do {                                                                        \
+    void* slabmem = (m);                                                      \
+    ak_sz slabsz = (s);                                                       \
+    ak_sz slabnavail = (av);                                                  \
+    ak_slab_root* slabroot = (r);                                             \
+                                                                              \
+    AKMALLOC_ASSERT(slabmem);                                                 \
+    AKMALLOC_ASSERT(slabsz < (AKMALLOC_DEFAULT_PAGE_SIZE - sizeof(ak_slab))); \
+    AKMALLOC_ASSERT(slabsz > 0);                                              \
+    AKMALLOC_ASSERT(slabsz % 2 == 0);                                         \
+                                                                              \
+    AKMALLOC_ASSERT(slabnavail < 512);                                        \
+    AKMALLOC_ASSERT(slabnavail > 0);                                          \
+                                                                              \
+    ak_slab* s = (ak_slab*)slabmem;                                           \
+    s->fd = s->bk = AK_NULLPTR;                                               \
+    s->root = slabroot;                                                       \
+    s->ref_count = slabnavail;                                                \
+    (void)slabsz;                                                             \
+  } while (0)
+
 ak_inline static ak_slab* ak_slab_new_init(char* mem, ak_sz sz, ak_sz navail, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
-    ak_slab_init(mem, sz, navail, root);
+    ak_slab_new_init_m(mem, sz, navail, root);
+    ak_slab* slab = ak_ptr_cast(ak_slab, mem);
+    ak_slab_link(slab, fd, bk);
+    return slab;
+}
+
+ak_inline static ak_slab* ak_slab_reuse_init(char* mem, ak_sz sz, ak_sz navail, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
+{
+    ak_slab_reuse_init_m(mem, sz, navail, root);
     ak_slab* slab = ak_ptr_cast(ak_slab, mem);
     ak_slab_link(slab, fd, bk);
     return slab;
@@ -209,9 +239,10 @@ static ak_slab* ak_slab_new_reuse(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_ro
     ak_sz navail = root->navail;
     ak_slab* const curr = root->empty_root.fd;
     ak_slab_unlink(curr);
-    ak_slab_new_init((char*)curr, sz, navail, fd, bk, root);
+    ak_slab_reuse_init((char*)curr, sz, navail, fd, bk, root);
 
     --(root->nempty);
+    --(root->release);
 
     return curr;
 }
@@ -390,9 +421,10 @@ static void ak_slab_destroy(ak_slab_root* root)
 static void ak_slab_init_pages(ak_slab_root* root, ak_u32 npages)
 {
     for (ak_u32 i = 0; i < npages; ++i) {
-        ak_slab_new_alloc(AKMALLOC_DEFAULT_PAGE_SIZE, root->empty_root.fd, ak_as_ptr(root->empty_root), root);
+        ak_slab_new_alloc(root->sz, root->empty_root.fd, ak_as_ptr(root->empty_root), root);
     }
     root->nempty += npages;
+    root->release += npages;
 }
 
 #endif/*AKMALLOC_SLAB_H*/

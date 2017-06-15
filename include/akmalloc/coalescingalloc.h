@@ -349,6 +349,7 @@ static int ak_ca_get_new_segment(ak_ca_root* root, ak_sz sz)
             segsz = seg->sz;
             ak_ca_segment_unlink(seg);
             --(root->nempty);
+            --(root->release);
             break;
         }
     }
@@ -363,6 +364,7 @@ static void ak_ca_add_new_segment_no_search(ak_ca_root* root, ak_sz sz)
     sz = ak_ca_aligned_segment_size(root, sz);
     ak_ca_add_new_segment(root, (char*)ak_os_alloc(sz), sz);
     ++root->nempty;
+    ++root->release;
 }
 
 static ak_u32 ak_ca_return_os_mem(ak_ca_segment* r, ak_u32 num)

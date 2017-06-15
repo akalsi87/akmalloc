@@ -38,7 +38,13 @@ For more information, please refer to <http://unlicense.org/>
 #include "akmalloc/constants.h"
 #include "akmalloc/inline.h"
 
+#if AKMALLOC_GCC || AKMALLOC_CLANG
+#  define AKMALLOC_USE_CK
+#endif
+
+#ifndef AKMALLOC_USE_CK
 typedef struct ak_spinlock_tag ak_spinlock;
+#endif
 
 struct ak_spinlock_tag
 {
@@ -70,18 +76,33 @@ static void ak_spinlock_yield();
 #  define ak_atomic_incr(px) _InterlockedIncrement((volatile long*)(px))
 #endif/* Windows */
 
+#include "external/ck/ck_spinlock.h"
+
+typedef ck_spinlock_t ak_spinlock;
+
 ak_inline static int ak_spinlock_is_locked(ak_spinlock* p)
 {
+#ifndef AKMALLOC_USE_CK
     return *(volatile ak_u32*)(&(p->islocked));
+#else
+    return ck_spinlock_locked(p);
+#endif
 }
 
 ak_inline static void ak_spinlock_init(ak_spinlock* p)
 {
+#ifndef AKMALLOC_USE_CK
     p->islocked = 0;
+#else
+    ck_spinlock_init(p);
+#endif
 }
 
 ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
 {
+#ifdef AKMALLOC_USE_CK
+    ck_spinlock_lock(p);
+#else    
     ak_u32 spins = 1;
 
 #if AKMALLOC_WINDOWS
@@ -116,14 +137,18 @@ ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
     }
 
 #undef SPINS_PER_YIELD
-
+#endif
     AKMALLOC_ASSERT(ak_spinlock_is_locked(p));
 }
 
 ak_inline static void ak_spinlock_release(ak_spinlock* p)
 {
     AKMALLOC_ASSERT(ak_spinlock_is_locked(p));
+#ifndef AKMALLOC_USE_CK
     ak_atomic_xchg(&(p->islocked), 0);
+#else
+    ck_spinlock_unlock(p);
+#endif
 }
 
 #if AKMALLOC_WINDOWS

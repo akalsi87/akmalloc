@@ -177,14 +177,14 @@ static const ak_sz CA_SIZES[NCAROOTS] = {
 
 static const ak_sz CA_SEG_SIZES[NCAROOTS] = {
     4096, 4096, 4096, 8192,
-    8192, 8192, 16384, 16384,
+    8192, 8192, 32768, 32768,
     32768, 32768, 32768, 32768,
     131072, 8192
 };
 
 static const ak_sz CA_REL_RATE[NCAROOTS] = {
     4, 4, 4, 3,
-    3, 3, 3, 2,
+    3, 2, 2, 2,
     2, 2, 2, 2,
     2, 1
 };
