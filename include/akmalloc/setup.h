@@ -78,9 +78,4 @@ ak_inline static void* ak_page_start_before(void* p)
     return (void*)((ak_sz)p & (~(ak_sz)(AKMALLOC_DEFAULT_PAGE_SIZE - 1)));
 }
 
-ak_inline static const void* ak_page_start_before_const(const void* p)
-{
-    return (void*)((ak_sz)p & (~(ak_sz)(AKMALLOC_DEFAULT_PAGE_SIZE - 1)));
-}
-
 #endif/*AKMALLOC_SETUP_H*/

@@ -26,7 +26,6 @@ set(akmalloc_exp_hdr
     ${xprt}/coalescingalloc.h;
     ${xprt}/config.h;
     ${xprt}/constants.h;
-    ${xprt}/bitset.h;
     ${xprt}/inline.h;
     ${xprt}/malloc.h;
     ${xprt}/mallocstate.h;

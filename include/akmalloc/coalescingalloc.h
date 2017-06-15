@@ -139,7 +139,7 @@ struct ak_ca_root_tag
 
 ak_inline static void ak_ca_set_sz(ak_alloc_info* p, ak_sz sz)
 {
-    AKMALLOC_ASSERT(sz == ak_ca_to_sz((ak_alloc_info)sz));
+    // AKMALLOC_ASSERT(sz == ak_ca_to_sz((ak_alloc_info)sz));
     // 7 because there are only 3 useful bits. the fourth bit may collect garbage.
     *p = (ak_alloc_info)((((ak_sz)*p)  &  ((ak_sz)7)) |
                                  (sz   & ~(AK_COALESCE_ALIGN - 1)));
@@ -274,7 +274,7 @@ ak_inline static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz,
         AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
         ak_sz nodesz = ak_ca_to_sz(n->currinfo);
         if (nodesz >= sz) {
-            if ((nodesz - sz) > splitsz) {
+            if ((nodesz - sz) >= splitsz) {
                 // split and assign
                 ak_alloc_node* newnode = ak_ptr_cast(ak_alloc_node, (((char*)node) + sz));
                 newnode->root = n->root;
@@ -309,6 +309,7 @@ ak_inline static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz,
 
 static int ak_ca_add_new_segment(ak_ca_root* root, char* mem, ak_sz sz)
 {
+    int success = 0;
     if (ak_likely(mem)) {
         // make segment
         ak_ca_segment* seg = ak_ptr_cast(ak_ca_segment, (mem + sz - sizeof(ak_ca_segment)));
@@ -328,9 +329,9 @@ static int ak_ca_add_new_segment(ak_ca_root* root, char* mem, ak_sz sz)
             ak_free_list_node* fl = (ak_free_list_node*)(hd + 1);
             ak_free_list_node_link(fl, root->free_root.fd, ak_as_ptr(root->free_root));
         }
-        return 1;
+        success = 1;
     }
-    return 0;
+    return success;
 }
 
 static int ak_ca_get_new_segment(ak_ca_root* root, ak_sz sz)
@@ -426,9 +427,15 @@ ak_inline static void* ak_ca_realloc_in_place(ak_ca_root* root, void* mem, ak_sz
     void* retmem = AK_NULLPTR;
 
     ak_alloc_node* n = ak_ptr_cast(ak_alloc_node, mem) - 1;
-    AKMALLOC_ASSERT(ak_ca_is_free(n->currinfo));
+    AKMALLOC_ASSERT(!ak_ca_is_free(n->currinfo));
     // check if there is a free next, if so, maybe merge
     ak_sz sz = ak_ca_to_sz(n->currinfo);
+
+    if (sz >= newsz) {
+        return mem;
+    }
+
+    newsz = ak_ca_aligned_size(newsz);
 
     ak_alloc_node* next = ak_ca_next_node(n);
     if (next && ak_ca_is_free(next->currinfo)) {
@@ -452,7 +459,7 @@ ak_inline static void* ak_ca_realloc_in_place(ak_ca_root* root, void* mem, ak_sz
             ak_ca_set_sz(ak_as_ptr(n->currinfo), totalsz);
             ak_ca_update_footer(n);
 
-            if ((totalsz - newsz) > root->MIN_SIZE_TO_SPLIT) {
+            if ((totalsz - newsz) >= (root->MIN_SIZE_TO_SPLIT + sizeof(ak_alloc_node))) {
                 // split and assign
                 ak_alloc_node* newnode = ak_ptr_cast(ak_alloc_node, (((char*)(n + 1)) + newsz));
                 newnode->root = root;
@@ -463,6 +470,7 @@ ak_inline static void* ak_ca_realloc_in_place(ak_ca_root* root, void* mem, ak_sz
                 ak_ca_set_is_free(ak_as_ptr(n->currinfo), 0);
                 ak_ca_update_footer(n);
 
+                // newnode->previnfo = n->currinfo;
                 ak_ca_set_sz(ak_as_ptr(newnode->currinfo), totalsz - newsz - sizeof(ak_alloc_node));
                 ak_ca_set_is_first(ak_as_ptr(newnode->currinfo), 0);
                 ak_ca_set_is_last(ak_as_ptr(newnode->currinfo), islast);
