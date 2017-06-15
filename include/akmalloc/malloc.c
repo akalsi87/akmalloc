@@ -42,6 +42,7 @@ For more information, please refer to <http://unlicense.org/>
 #endif
 
 #include "akmalloc/mallocstate.h"
+#include <string.h>
 
 /***********************************************
  * Exported APIs
@@ -79,8 +80,9 @@ void* ak_malloc(size_t sz)
 void* ak_calloc(size_t elsz, size_t numel)
 {
     const ak_sz sz = elsz*numel;
+    ak_ensure_malloc_state_init();
     void* mem = ak_malloc_from_state(GMSTATE, sz);
-    return ak_memset(mem, 0, sz);
+    return mem ? memset(mem, 0, sz) : mem;
 }
 
 void ak_free(void* mem)
