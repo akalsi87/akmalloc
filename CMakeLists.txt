@@ -17,6 +17,8 @@ set(INCLUDE_TEST_IN_BIN FALSE)
 # -- Set project name
 project(akmalloc)
 
+set(CMAKE_CXX_STANDARD 11)
+
 # -- Include the magic ProjTools
 set($ENV{USE_CODE_COV} 0) # -- disable, uses malloc and we get injected after, causes crash
 include("cmake/ProjTools.cmake")

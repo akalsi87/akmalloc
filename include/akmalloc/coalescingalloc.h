@@ -117,7 +117,7 @@ struct ak_ca_root_tag
 
     ak_u32 RELEASE_RATE;            /**< release rate for this root */
     ak_u32 MAX_SEGMENTS_TO_FREE;    /**< number of segments to free when release is done */
-    ak_sz MIN_SIZE_TO_SPLIT;        /**< minimum size of split node to decide whether to 
+    ak_sz MIN_SIZE_TO_SPLIT;        /**< minimum size of split node to decide whether to
                                          split a free list node */
 
     AK_CA_LOCK_DEFINE(LOCKED);      /**< lock for this allocator if locks are enabled */
@@ -290,7 +290,7 @@ ak_inline static void* ak_ca_search_free_list(ak_free_list_node* root, ak_sz sz,
                 ak_ca_set_is_last(ak_as_ptr(newnode->currinfo), islast);
                 ak_ca_set_is_free(ak_as_ptr(newnode->currinfo), 1);
                 ak_ca_update_footer(newnode);
-                
+
                 // copy free list node from node
                 ak_free_list_node* fl = (ak_free_list_node*)(newnode + 1);
                 ak_free_list_node_link(fl, node->fd, node->bk);
@@ -334,7 +334,7 @@ static int ak_ca_add_new_segment(ak_ca_root* root, char* mem, ak_sz sz)
     return success;
 }
 
-static int ak_ca_get_new_segment(ak_ca_root* root, ak_sz sz)
+ak_inline static int ak_ca_get_new_segment(ak_ca_root* root, ak_sz sz)
 {
     // align to segment size multiple
     sz += sizeof(ak_ca_segment) + sizeof(ak_alloc_node) + sizeof(ak_free_list_node);
@@ -357,7 +357,7 @@ static int ak_ca_get_new_segment(ak_ca_root* root, ak_sz sz)
     return ak_ca_add_new_segment(root, mem ? mem : ((char*)ak_os_alloc(sz)), segsz);
 }
 
-static void ak_ca_add_new_segment_no_search(ak_ca_root* root, ak_sz sz)
+ak_inline static void ak_ca_add_new_segment_no_search(ak_ca_root* root, ak_sz sz)
 {
     // align to segment size multiple
     sz += sizeof(ak_ca_segment) + sizeof(ak_alloc_node) + sizeof(ak_free_list_node);
@@ -487,7 +487,7 @@ ak_inline static void* ak_ca_realloc_in_place(ak_ca_root* root, void* mem, ak_sz
                 ak_ca_set_is_last(ak_as_ptr(newnode->currinfo), islast);
                 ak_ca_set_is_free(ak_as_ptr(newnode->currinfo), 1);
                 ak_ca_update_footer(newnode);
-                
+
                 // copy free list node from node
                 ak_free_list_node* fl = (ak_free_list_node*)(newnode + 1);
                 ak_free_list_node_link(fl, nextcopy.fd, nextcopy.bk);
@@ -551,7 +551,7 @@ ak_inline static void ak_ca_free(ak_ca_root* root, void* m)
     AKMALLOC_ASSERT(!nextnode || (node->currinfo == nextnode->previnfo));
     ak_ca_set_is_free(ak_as_ptr(node->currinfo), 1);
     ak_ca_update_footer(node);
-    
+
     // NOTE: maybe this should happen at a lower frequency?
     // coalesce if free before or if free after or both
     if (prevnode && ak_ca_is_free(node->previnfo)) {

@@ -145,13 +145,13 @@ struct ak_slab_free_node_tag
 ak_inline static void ak_slab_init_slots_chain(ak_slab* s)
 {
     ak_slab_free_node* n = (ak_slab_free_node*)(s + 1);
+    char* cm_end = (char*)s + AKMALLOC_DEFAULT_PAGE_SIZE;
     char* cm = ak_ptr_cast(char, n);
     int slabsz = s->root->sz;
     s->next_free = n;
-    for (ak_u32 i = 0; i < (ak_u32)s->ref_count - 1; ++i) {
-        cm += slabsz;
+    for (; cm < cm_end; cm += slabsz) {
         n->next = ak_ptr_cast(ak_slab_free_node, cm);
-        n = n->next;
+        n = (ak_slab_free_node*)cm;
     }
     n->next = AK_NULLPTR;
 }

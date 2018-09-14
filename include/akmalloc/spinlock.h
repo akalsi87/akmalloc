@@ -42,8 +42,8 @@ For more information, please refer to <http://unlicense.org/>
 #  define AKMALLOC_USE_CK
 #endif
 
-#ifndef AKMALLOC_USE_CK
-typedef struct ak_spinlock_tag ak_spinlock;
+#ifdef AKMALLOC_MSVC
+#  include <intrin.h>
 #endif
 
 struct ak_spinlock_tag
@@ -51,9 +51,13 @@ struct ak_spinlock_tag
     ak_u32 islocked;
 };
 
+typedef struct ak_spinlock_tag ak_spinlock;
+
 static void ak_os_sleep(ak_u32 micros);
 
 static void ak_spinlock_yield();
+
+static void ak_cpu_relax();
 
 #if !AKMALLOC_MSVC && (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) > 40100
 #  define ak_atomic_cas(px, nx, ox) __sync_bool_compare_and_swap((px), (ox), (nx))
@@ -76,81 +80,42 @@ static void ak_spinlock_yield();
 #  define ak_atomic_incr(px) _InterlockedIncrement((volatile long*)(px))
 #endif/* Windows */
 
-#ifdef AKMALLOC_USE_CK
-#include "external/ck/ck_spinlock.h"
-
-typedef ck_spinlock_t ak_spinlock;
-#endif
 
 ak_inline static int ak_spinlock_is_locked(ak_spinlock* p)
 {
-#ifndef AKMALLOC_USE_CK
     return *(volatile ak_u32*)(&(p->islocked));
-#else
-    return ck_spinlock_locked(p);
-#endif
 }
 
 ak_inline static void ak_spinlock_init(ak_spinlock* p)
 {
-#ifndef AKMALLOC_USE_CK
     p->islocked = 0;
-#else
-    ck_spinlock_init(p);
-#endif
 }
 
 ak_inline static void ak_spinlock_acquire(ak_spinlock* p)
 {
-#ifdef AKMALLOC_USE_CK
-    ck_spinlock_lock(p);
-#else    
     ak_u32 spins = 1;
 
-#if AKMALLOC_WINDOWS
-#  define SPINS_PER_YIELD 31
-#elif AKMALLOC_MACOS || AKMALLOC_IOS
-#  define SPINS_PER_YIELD 15
-#else
-#  define SPINS_PER_YIELD 3
-#endif
-
-    ak_u32 max_spins_per_yield = 255;
-    ak_u32 spins_per_yield = SPINS_PER_YIELD;
+    ak_u32 spins_per_yield = 255;
 
     if (ak_atomic_xchg(&(p->islocked), 1)) {
         while (ak_atomic_xchg(&(p->islocked), 1)) {
-            while ((++spins & spins_per_yield) != 0) { }
-            spins = 1;
-            spins_per_yield = ((spins_per_yield + 1) << 1) - 1;
-            if (spins_per_yield > max_spins_per_yield) {
-                spins_per_yield = SPINS_PER_YIELD;
-#if AKMALLOC_MACOS || AKMALLOC_IOS
-                ak_os_sleep(40);
-                // ak_spinlock_yield();
-#elif AKMALLOC_LINUX
-                // ak_os_sleep(1);
-                ak_spinlock_yield();
-#else
-                ak_spinlock_yield();
-#endif
+            if ((++spins & spins_per_yield) != 0) {
+                ak_cpu_relax();
+            } else {
+                spins_per_yield = ((spins_per_yield + 1) <<  1) - 1;
+                ak_os_sleep(1);
             }
         }
     }
 
 #undef SPINS_PER_YIELD
-#endif
     AKMALLOC_ASSERT(ak_spinlock_is_locked(p));
 }
 
 ak_inline static void ak_spinlock_release(ak_spinlock* p)
 {
     AKMALLOC_ASSERT(ak_spinlock_is_locked(p));
-#ifndef AKMALLOC_USE_CK
     ak_atomic_xchg(&(p->islocked), 0);
-#else
-    ck_spinlock_unlock(p);
-#endif
 }
 
 #if AKMALLOC_WINDOWS
@@ -171,6 +136,11 @@ static void ak_spinlock_yield()
     SwitchToThread();
 }
 
+static void ak_cpu_relax()
+{
+    _mm_pause();
+}
+
 #else
 
 #include <sched.h>
@@ -184,6 +154,11 @@ static void ak_os_sleep(ak_u32 micros)
 static void ak_spinlock_yield()
 {
     sched_yield();
+}
+
+static void ak_cpu_relax()
+{
+    __asm volatile("pause");
 }
 
 #endif

@@ -62,7 +62,7 @@ void shuffle(T* array, ak_sz n)
 
 CPP_TEST( allocRandomFreeSlab )
 {
-    static const ak_sz nptrs = 10000;
+    static const ak_sz nptrs = 100000;
     static const ak_sz sizemin = 8;
     static const ak_sz sizemax = 256;
 
@@ -121,7 +121,7 @@ CPP_TEST( allocRandomFreeSlab )
 
 CPP_TEST( allocRandomFreeCoalesceSmall )
 {
-    static const ak_sz nptrs = 1000;
+    static const ak_sz nptrs = 10000;
     static const ak_sz sizemin = 257;
     static const ak_sz sizemax = 16383;
 
@@ -135,7 +135,7 @@ CPP_TEST( allocRandomFreeCoalesceSmall )
         order[i] = i;
     }
     shuffle(order, nptrs);
-    
+
     for (ak_sz i = 0; i < nptrs; ++i) {
         ak_sz s = (rand_num() % (sizemax - sizemin + 1)) + sizemin;
         sizes[i] = s;
@@ -179,7 +179,7 @@ CPP_TEST( allocRandomFreeCoalesceSmall )
 
 CPP_TEST( allocRandomFreeCoalesceMedium )
 {
-    static const ak_sz nptrs = 1000;
+    static const ak_sz nptrs = 10000;
     static const ak_sz sizemin = 16384;
     static const ak_sz sizemax = 65535;
 
@@ -296,7 +296,7 @@ CPP_TEST( allocRandomFreeCoalesceLarge )
 CPP_TEST( allocRandomFreeMap )
 {
 #if AKMALLOC_BITNESS == 64
-    static const ak_sz nptrs = 1000;
+    static const ak_sz nptrs = 10000;
 #else
     static const ak_sz nptrs =  500;
     static int runalready = 0;
@@ -378,7 +378,7 @@ static const size_t nthreads = std::thread::hardware_concurrency();
 void AllocDeallocTask()
 {
     static const ak_sz nptrs = (10000 * nthreads) > 20000 ? 20000/nthreads : 10000;
- 
+
     void* p[20000] = { 0 };
     size_t sizes[20000] = { 0 };
 
