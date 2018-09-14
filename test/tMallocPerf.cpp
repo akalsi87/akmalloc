@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <algorithm>
+
 #if !defined(USE_MALLOC)
 #  define USE_MALLOC 0
 #endif
@@ -62,7 +64,7 @@ void shuffle(T* array, ak_sz n)
 
 CPP_TEST( allocRandomFreeSlab )
 {
-    static const ak_sz nptrs = 100000;
+    static const ak_sz nptrs = std::min(RAND_MAX, 100000);
     static const ak_sz sizemin = 8;
     static const ak_sz sizemax = 256;
 

@@ -38,7 +38,7 @@ For more information, please refer to <http://unlicense.org/>
 #define AKMALLOC_PATCH_VER    1
 
 #if !defined(AKMALLOC_LINK_STATIC)
-#  if 0
+#  if 1
 #    define AKMALLOC_LINK_STATIC
 #  endif
 #endif

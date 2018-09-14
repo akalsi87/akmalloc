@@ -110,7 +110,7 @@ CPP_TEST( reallocInPlace )
     void* new_ptr = ak_ca_realloc_in_place(&r, ptr, 140);
     TEST_TRUE(new_ptr == ptr);
     memset(ptr, 42, 140);
-    void* newer_ptr = ak_ca_realloc_in_place(&r, new_ptr, 10000000000);
+    void* newer_ptr = ak_ca_realloc_in_place(&r, new_ptr, (ak_sz)10000000000);
     TEST_TRUE(newer_ptr == 0);
     ak_ca_free(&r, ptr);
     ak_ca_destroy(&r);
