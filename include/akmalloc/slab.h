@@ -224,7 +224,7 @@ ak_inline static ak_slab* ak_slab_reuse_init(char* mem, ak_sz sz, ak_sz navail, 
     return slab;
 }
 
-static ak_slab* ak_slab_new_alloc(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
+ak_inline static ak_slab* ak_slab_new_alloc(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
     char* const mem = (char*)ak_os_alloc(AKMALLOC_DEFAULT_PAGE_SIZE);
     if (ak_unlikely(!mem)) { return AK_NULLPTR; }
@@ -232,7 +232,7 @@ static ak_slab* ak_slab_new_alloc(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_ro
     return ak_ptr_cast(ak_slab, mem);
 }
 
-static ak_slab* ak_slab_new_reuse(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
+ak_inline static ak_slab* ak_slab_new_reuse(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_slab_root* root)
 {
     AKMALLOC_ASSERT(root->nempty >= 1);
 
@@ -256,7 +256,7 @@ ak_inline static ak_slab* ak_slab_new(ak_sz sz, ak_slab* fd, ak_slab* bk, ak_sla
 
 #define ak_slab_2_mem(s) (char*)(void*)((s) + 1)
 
-static void ak_slab_release_pages(ak_slab_root* root, ak_slab* s, ak_u32 numtofree)
+ak_inline static void ak_slab_release_pages(ak_slab_root* root, ak_slab* s, ak_u32 numtofree)
 {
     ak_slab* const r = s;
     ak_slab* next = AK_NULLPTR;
